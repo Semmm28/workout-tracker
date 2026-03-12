@@ -1,0 +1,25 @@
+{
+  "name": "Workout Log",
+  "short_name": "Workout Log",
+  "description": "Offline personal workout tracker for brands, machines, and logged sets.",
+  "start_url": "./index.html#/brands",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0b0f",
+  "theme_color": "#0b0b0f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

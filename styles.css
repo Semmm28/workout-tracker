@@ -34,6 +34,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  height: 100%;
   background:
     radial-gradient(circle at top, rgba(116, 137, 255, 0.14), transparent 28%),
     linear-gradient(180deg, #0d0e13 0%, #090a0d 100%);
@@ -42,6 +43,7 @@ body {
 
 body {
   overscroll-behavior-y: contain;
+  overflow: hidden;
 }
 
 button,
@@ -84,6 +86,9 @@ textarea {
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
 }
 
 .loading-screen {
@@ -127,13 +132,46 @@ textarea {
 }
 
 .app {
-  min-height: 100vh;
-  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  height: 100vh;
+  height: 100dvh;
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  overflow: hidden;
 }
 
 .phone-frame {
   max-width: 760px;
+  height: 100%;
   margin: 0 auto;
+  min-height: 0;
+}
+
+.screen-shell {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+}
+
+.screen-top {
+  position: relative;
+  z-index: 6;
+  padding-bottom: 12px;
+  background:
+    linear-gradient(180deg, rgba(13, 14, 19, 0.98) 0%, rgba(13, 14, 19, 0.94) 72%, rgba(13, 14, 19, 0.72) 100%);
+  backdrop-filter: blur(16px);
+}
+
+.screen-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 2px calc(12px + var(--safe-bottom));
+  scrollbar-width: none;
+}
+
+.screen-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .header {
@@ -211,7 +249,7 @@ textarea {
 .toolbar {
   display: grid;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .search-wrap {
@@ -304,6 +342,12 @@ textarea {
 .list-wrap {
   display: grid;
   gap: 12px;
+}
+
+.screen-scroll > .list-wrap,
+.screen-scroll > .detail-stack,
+.screen-scroll > .empty-state {
+  margin-top: 0;
 }
 
 .swipe-row {

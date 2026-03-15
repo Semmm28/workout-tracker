@@ -391,25 +391,29 @@ function renderBrandsScreen() {
     `;
 
   return `
-    ${renderHeader({
-      title: 'Brands',
-      subtitle: `${state.brands.length} total`,
-      extraButtons: `
-        <button class="small-btn ${state.reorder.brands ? 'active' : ''}" data-action="toggle-brand-reorder">${state.reorder.brands ? 'Done' : 'Sort'}</button>
-        <button class="round-btn primary" data-action="open-brand-create" aria-label="Add brand">${icon.plus}</button>
-      `,
-    })}
-    <section class="toolbar fade-in">
-      <div class="search-wrap">
-        <span class="search-icon">${icon.search}</span>
-        <input id="brand-search" type="search" inputmode="search" autocomplete="off" placeholder="Search brands" value="${escapeAttr(state.search.brands)}" />
+    <section class="screen-shell">
+      <div class="screen-top fade-in">
+        ${renderHeader({
+          title: 'Brands',
+          subtitle: `${state.brands.length} total`,
+          extraButtons: `
+            <button class="small-btn ${state.reorder.brands ? 'active' : ''}" data-action="toggle-brand-reorder">${state.reorder.brands ? 'Done' : 'Sort'}</button>
+            <button class="round-btn primary" data-action="open-brand-create" aria-label="Add brand">${icon.plus}</button>
+          `,
+        })}
+        <section class="toolbar">
+          <div class="search-wrap">
+            <span class="search-icon">${icon.search}</span>
+            <input id="brand-search" type="search" inputmode="search" autocomplete="off" placeholder="Search brands" value="${escapeAttr(state.search.brands)}" />
+          </div>
+          <div class="toolbar-row">
+            <div class="meta-text">Swipe left for edit and delete</div>
+            ${state.reorder.brands ? '<div class="helper-text">Use arrows to reorder</div>' : ''}
+          </div>
+        </section>
       </div>
-      <div class="toolbar-row">
-        <div class="meta-text">Swipe left for edit and delete</div>
-        ${state.reorder.brands ? '<div class="helper-text">Use arrows to reorder</div>' : ''}
-      </div>
+      <div class="screen-scroll">${body}</div>
     </section>
-    ${body}
   `;
 }
 
@@ -440,8 +444,14 @@ function renderMachinesScreen() {
   const brand = currentBrand();
   if (!brand) {
     return `
-      ${renderHeader({ title: 'Machines', showBack: true, onBack: 'go-brands' })}
-      <section class="empty-state"><h2>Brand not found</h2><p>The selected brand no longer exists.</p></section>
+      <section class="screen-shell">
+        <div class="screen-top fade-in">
+          ${renderHeader({ title: 'Machines', showBack: true, onBack: 'go-brands' })}
+        </div>
+        <div class="screen-scroll">
+          <section class="empty-state"><h2>Brand not found</h2><p>The selected brand no longer exists.</p></section>
+        </div>
+      </section>
     `;
   }
   const brandMachineCount = state.machines.filter((m) => m.brandId === brand.id).length;
@@ -458,27 +468,31 @@ function renderMachinesScreen() {
     `;
 
   return `
-    ${renderHeader({
-      title: brand.name,
-      subtitle: `${brandMachineCount} machine${brandMachineCount === 1 ? '' : 's'}`,
-      showBack: true,
-      onBack: 'go-brands',
-      extraButtons: `
-        <button class="small-btn ${state.reorder.machines ? 'active' : ''}" data-action="toggle-machine-reorder">${state.reorder.machines ? 'Done' : 'Sort'}</button>
-        <button class="round-btn primary" data-action="open-machine-create" aria-label="Add machine">${icon.plus}</button>
-      `,
-    })}
-    <section class="toolbar fade-in">
-      <div class="search-wrap">
-        <span class="search-icon">${icon.search}</span>
-        <input id="machine-search" type="search" inputmode="search" autocomplete="off" placeholder="Search machines" value="${escapeAttr(state.search.machines)}" />
+    <section class="screen-shell">
+      <div class="screen-top fade-in">
+        ${renderHeader({
+          title: brand.name,
+          subtitle: `${brandMachineCount} machine${brandMachineCount === 1 ? '' : 's'}`,
+          showBack: true,
+          onBack: 'go-brands',
+          extraButtons: `
+            <button class="small-btn ${state.reorder.machines ? 'active' : ''}" data-action="toggle-machine-reorder">${state.reorder.machines ? 'Done' : 'Sort'}</button>
+            <button class="round-btn primary" data-action="open-machine-create" aria-label="Add machine">${icon.plus}</button>
+          `,
+        })}
+        <section class="toolbar">
+          <div class="search-wrap">
+            <span class="search-icon">${icon.search}</span>
+            <input id="machine-search" type="search" inputmode="search" autocomplete="off" placeholder="Search machines" value="${escapeAttr(state.search.machines)}" />
+          </div>
+          <div class="toolbar-row">
+            <div class="meta-text">Swipe left for edit and delete</div>
+            ${state.reorder.machines ? '<div class="helper-text">Use arrows to reorder</div>' : ''}
+          </div>
+        </section>
       </div>
-      <div class="toolbar-row">
-        <div class="meta-text">Swipe left for edit and delete</div>
-        ${state.reorder.machines ? '<div class="helper-text">Use arrows to reorder</div>' : ''}
-      </div>
+      <div class="screen-scroll">${body}</div>
     </section>
-    ${body}
   `;
 }
 
@@ -510,33 +524,45 @@ function renderMachineDetailScreen() {
   const brand = currentBrand();
   if (!machine || !brand) {
     return `
-      ${renderHeader({ title: 'Workout History', showBack: true, onBack: 'go-machines' })}
-      <section class="empty-state"><h2>Machine not found</h2><p>The selected machine no longer exists.</p></section>
+      <section class="screen-shell">
+        <div class="screen-top fade-in">
+          ${renderHeader({ title: 'Workout History', showBack: true, onBack: 'go-machines' })}
+        </div>
+        <div class="screen-scroll">
+          <section class="empty-state"><h2>Machine not found</h2><p>The selected machine no longer exists.</p></section>
+        </div>
+      </section>
     `;
   }
   const groups = groupedSets(machine.id);
   return `
-    ${renderHeader({
-      title: machine.name,
-      subtitle: brand.name,
-      showBack: true,
-      onBack: 'go-machines',
-      extraButtons: `<button class="round-btn primary" data-action="open-set-create" aria-label="Add set">${icon.plus}</button>`,
-    })}
-    <div class="detail-stack fade-in">
-      ${renderChartCard(machine.id)}
-      ${groups.length
-        ? groups.map((group) => renderDateGroup(group)).join('')
-        : `
-          <section class="empty-state">
-            <div class="loading-logo">${safeText(machine.name.slice(0, 2).toUpperCase())}</div>
-            <h2>No sets logged yet</h2>
-            <p>Track weight and reps to build a progression chart and workout history.</p>
-            <div><button class="primary-btn" data-action="open-set-create">Add set</button></div>
-          </section>
-        `
-      }
-    </div>
+    <section class="screen-shell">
+      <div class="screen-top fade-in">
+        ${renderHeader({
+          title: machine.name,
+          subtitle: brand.name,
+          showBack: true,
+          onBack: 'go-machines',
+          extraButtons: `<button class="round-btn primary" data-action="open-set-create" aria-label="Add set">${icon.plus}</button>`,
+        })}
+      </div>
+      <div class="screen-scroll">
+        <div class="detail-stack fade-in">
+          ${renderChartCard(machine.id)}
+          ${groups.length
+            ? groups.map((group) => renderDateGroup(group)).join('')
+            : `
+              <section class="empty-state">
+                <div class="loading-logo">${safeText(machine.name.slice(0, 2).toUpperCase())}</div>
+                <h2>No sets logged yet</h2>
+                <p>Track weight and reps to build a progression chart and workout history.</p>
+                <div><button class="primary-btn" data-action="open-set-create">Add set</button></div>
+              </section>
+            `
+          }
+        </div>
+      </div>
+    </section>
   `;
 }
 

@@ -293,6 +293,7 @@ function pushHistory(route) {
   if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
   if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
   if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
+  if (route.screen === 'settings') url.hash = '#/settings';
   history.pushState(route, '', url);
 }
 
@@ -300,6 +301,7 @@ function deriveRouteFromHash() {
   const hash = location.hash.replace(/^#\/?/, '');
   if (!hash || hash === 'brands') return { screen: 'brands', brandId: null, machineId: null };
   if (hash === 'bodyweight') return { screen: 'bodyweight', brandId: null, machineId: null };
+  if (hash === 'settings') return { screen: 'settings', brandId: null, machineId: null };
   const parts = hash.split('/');
   if (parts[0] === 'brands' && parts[1] && !parts[2]) return { screen: 'machines', brandId: parts[1], machineId: null };
   if (parts[0] === 'brands' && parts[1] && parts[2] === 'machines' && parts[3]) {
@@ -317,6 +319,7 @@ function navigate(route, replace = false) {
     if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
     if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
     if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
+    if (route.screen === 'settings') url.hash = '#/settings';
     history.replaceState(route, '', url);
   } else {
     pushHistory(route);
@@ -411,6 +414,36 @@ function bodyweightSeries() {
       value: Number(entry.weight),
       order: index + 1,
     }));
+}
+
+function buildExportPayload() {
+  return {
+    version: 1,
+    exportedAt: nowIso(),
+    brands: clone(state.brands),
+    machines: clone(state.machines),
+    sets: clone(state.sets),
+    bodyweights: clone(state.bodyweights),
+  };
+}
+
+function isValidImportRecord(record, type) {
+  if (!record || typeof record !== 'object') return false;
+  if (type === 'brands') return Boolean(record.id && record.name);
+  if (type === 'machines') return Boolean(record.id && record.brandId && record.name);
+  if (type === 'sets') return Boolean(record.id && record.machineId && record.loggedAt) && Number.isFinite(Number(record.weight)) && Number.isFinite(Number(record.reps));
+  if (type === 'bodyweights') return Boolean(record.id && record.loggedAt) && Number.isFinite(Number(record.weight));
+  return false;
+}
+
+function sanitizeImportData(data) {
+  const payload = data && typeof data === 'object' ? data : {};
+  return {
+    brands: Array.isArray(payload.brands) ? payload.brands.filter((record) => isValidImportRecord(record, 'brands')) : [],
+    machines: Array.isArray(payload.machines) ? payload.machines.filter((record) => isValidImportRecord(record, 'machines')) : [],
+    sets: Array.isArray(payload.sets) ? payload.sets.filter((record) => isValidImportRecord(record, 'sets')) : [],
+    bodyweights: Array.isArray(payload.bodyweights) ? payload.bodyweights.filter((record) => isValidImportRecord(record, 'bodyweights')) : [],
+  };
 }
 
 function escapeAttr(value) {
@@ -730,9 +763,46 @@ function renderMenu() {
         <div class="menu-actions">
           <button class="menu-action ${state.route.screen !== 'bodyweight' ? 'active' : ''}" data-action="nav-workouts">Workouts</button>
           <button class="menu-action ${state.route.screen === 'bodyweight' ? 'active' : ''}" data-action="nav-bodyweight">Lichaamsgewicht</button>
+          <button class="menu-action ${state.route.screen === 'settings' ? 'active' : ''}" data-action="nav-settings">Instellingen</button>
         </div>
       </section>
     </div>
+  `;
+}
+
+function renderSettingsScreen() {
+  return `
+    <section class="screen-shell">
+      <div class="screen-top fade-in">
+        ${renderHeader({
+          title: 'Instellingen',
+          subtitle: 'Importeer of exporteer je lokale data',
+        })}
+      </div>
+      <div class="screen-scroll">
+        <div class="detail-stack fade-in">
+          <section class="chart-card slide-up">
+            <div class="settings-stack">
+              <div class="settings-copy">
+                <h3>Data exporteren</h3>
+                <p class="meta-text">Download al je brands, machines, sets en lichaamsgewichtmetingen als JSON-backup.</p>
+              </div>
+              <button class="primary-btn" data-action="export-data">Exporteer data</button>
+            </div>
+          </section>
+          <section class="chart-card slide-up">
+            <div class="settings-stack">
+              <div class="settings-copy">
+                <h3>Data importeren</h3>
+                <p class="meta-text">Import voegt geldige records samen met je bestaande lokale data. Bestaande IDs worden bijgewerkt.</p>
+              </div>
+              <input id="import-file-input" class="hidden-file-input" type="file" accept="application/json" />
+              <button class="secondary-btn" data-action="trigger-import">Importeer data</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -979,6 +1049,7 @@ function render() {
   if (state.route.screen === 'machines') screen = renderMachinesScreen();
   if (state.route.screen === 'machineDetail') screen = renderMachineDetailScreen();
   if (state.route.screen === 'bodyweight') screen = renderBodyweightScreen();
+  if (state.route.screen === 'settings') screen = renderSettingsScreen();
 
   app.innerHTML = `
     <main class="app">
@@ -998,6 +1069,7 @@ function render() {
 function wireInputs() {
   const brandSearch = document.getElementById('brand-search');
   const machineSearch = document.getElementById('machine-search');
+  const importFileInput = document.getElementById('import-file-input');
   if (brandSearch) brandSearch.addEventListener('input', debounce((event) => {
     state.search.brands = event.target.value;
     render();
@@ -1006,6 +1078,17 @@ function wireInputs() {
     state.search.machines = event.target.value;
     render();
   }, 10));
+  if (importFileInput) {
+    importFileInput.addEventListener('change', async (event) => {
+      const [file] = Array.from(event.target.files || []);
+      if (!file) return;
+      try {
+        await importDataFile(file);
+      } finally {
+        event.target.value = '';
+      }
+    });
+  }
 }
 
 function wireForms() {
@@ -1100,6 +1183,44 @@ async function saveBodyweight(payload, existing = null) {
     : { id: uid('bodyweight'), ...payload, createdAt: nowIso(), updatedAt: nowIso() };
   await saveRecord('bodyweights', record);
   await loadState();
+}
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportAllData() {
+  const payload = buildExportPayload();
+  const stamp = todayInputValue();
+  downloadJson(`workout-tracker-export-${stamp}.json`, payload);
+  showToast('Data exported');
+}
+
+async function importDataFile(file) {
+  const text = await file.text();
+  const parsed = JSON.parse(text);
+  const sanitized = sanitizeImportData(parsed);
+  const total = sanitized.brands.length + sanitized.machines.length + sanitized.sets.length + sanitized.bodyweights.length;
+  if (!total) {
+    showToast('No valid records found in import file');
+    return;
+  }
+
+  if (sanitized.brands.length) await bulkPut('brands', sanitized.brands);
+  if (sanitized.machines.length) await bulkPut('machines', sanitized.machines);
+  if (sanitized.sets.length) await bulkPut('sets', sanitized.sets);
+  if (sanitized.bodyweights.length) await bulkPut('bodyweights', sanitized.bodyweights);
+  await loadState();
+  render();
+  showToast(`Imported ${total} record${total === 1 ? '' : 's'}`);
 }
 
 function openBrandModal(mode, data = null) {
@@ -1321,6 +1442,9 @@ function attachEventDelegation() {
     if (action === 'go-machines') return navigate({ screen: 'machines', brandId: state.route.brandId, machineId: null });
     if (action === 'nav-workouts') return navigate({ screen: 'brands', brandId: null, machineId: null });
     if (action === 'nav-bodyweight') return navigate({ screen: 'bodyweight', brandId: null, machineId: null });
+    if (action === 'nav-settings') return navigate({ screen: 'settings', brandId: null, machineId: null });
+    if (action === 'export-data') return exportAllData();
+    if (action === 'trigger-import') return document.getElementById('import-file-input')?.click();
 
     if (action === 'open-brand-create') return openBrandModal('create');
     if (action === 'open-machine-create') return openMachineModal('create');

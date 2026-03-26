@@ -794,10 +794,28 @@ label {
   gap: 16px;
 }
 
+.settings-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-copy h3 {
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
 .bodyweight-footer {
   position: static;
   background: none;
   padding-top: 0;
+}
+
+.hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .menu-backdrop {

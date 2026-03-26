@@ -1,5 +1,5 @@
 const DB_NAME = 'workout-tracker-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const ACTION_WIDTH = 176;
 
 const state = {
@@ -7,9 +7,11 @@ const state = {
   brands: [],
   machines: [],
   sets: [],
+  bodyweights: [],
   route: { screen: 'brands', brandId: null, machineId: null },
   search: { brands: '', machines: '' },
-  chartMetric: 'weight',
+  chartMetric: 'heaviestE1rm',
+  menuOpen: false,
   reorder: { brands: false, machines: false },
   modal: null,
   confirmSheet: null,
@@ -134,6 +136,10 @@ function openDb() {
         sets.createIndex('machineId', 'machineId');
         sets.createIndex('machineId_loggedAt', ['machineId', 'loggedAt']);
       }
+      if (!db.objectStoreNames.contains('bodyweights')) {
+        const bodyweights = db.createObjectStore('bodyweights', { keyPath: 'id' });
+        bodyweights.createIndex('loggedAt', 'loggedAt');
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -250,14 +256,16 @@ async function restoreSnapshot(snapshot) {
 }
 
 async function loadState() {
-  const [brands, machines, sets] = await Promise.all([
+  const [brands, machines, sets, bodyweights] = await Promise.all([
     getAll('brands'),
     getAll('machines'),
     getAll('sets'),
+    getAll('bodyweights'),
   ]);
   state.brands = brands.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
   state.machines = machines.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
   state.sets = sets.sort((a, b) => new Date(b.loggedAt) - new Date(a.loggedAt));
+  state.bodyweights = bodyweights.sort((a, b) => new Date(b.loggedAt) - new Date(a.loggedAt));
 }
 
 function pushHistory(route) {
@@ -265,6 +273,7 @@ function pushHistory(route) {
   if (route.screen === 'brands') url.hash = '#/brands';
   if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
   if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
+  if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
   history.pushState(route, '', url);
 }
 
@@ -276,16 +285,19 @@ function deriveRouteFromHash() {
   if (parts[0] === 'brands' && parts[1] && parts[2] === 'machines' && parts[3]) {
     return { screen: 'machineDetail', brandId: parts[1], machineId: parts[3] };
   }
+  if (parts[0] === 'bodyweight') return { screen: 'bodyweight', brandId: null, machineId: null };
   return { screen: 'brands', brandId: null, machineId: null };
 }
 
 function navigate(route, replace = false) {
   state.route = route;
+  state.menuOpen = false;
   if (replace) {
     const url = new URL(location.href);
     if (route.screen === 'brands') url.hash = '#/brands';
     if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
     if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
+    if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
     history.replaceState(route, '', url);
   } else {
     pushHistory(route);
@@ -342,18 +354,52 @@ function groupedSets(machineId) {
     }));
 }
 
+function isValidSet(entry) {
+  const weight = Number(entry?.weight);
+  const reps = Number(entry?.reps);
+  const loggedAt = new Date(entry?.loggedAt);
+  return Number.isFinite(weight) && weight >= 0 && Number.isFinite(reps) && reps >= 0 && !Number.isNaN(loggedAt.getTime());
+}
+
+function heaviestSetByDay(machineId) {
+  const byDay = new Map();
+  getMachineSets(machineId).forEach((entry) => {
+    if (!isValidSet(entry)) return;
+    const key = formatDateKey(entry.loggedAt);
+    const current = byDay.get(key);
+    if (!current) {
+      byDay.set(key, entry);
+      return;
+    }
+    const entryWeight = Number(entry.weight);
+    const currentWeight = Number(current.weight);
+    if (entryWeight > currentWeight || (entryWeight === currentWeight && Number(entry.reps) > Number(current.reps))) {
+      byDay.set(key, entry);
+    }
+  });
+  return Array.from(byDay.entries())
+    .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+    .map(([day, entry]) => ({ day, entry }));
+}
+
+function e1rmForSet(entry) {
+  const weight = Number(entry.weight);
+  const reps = Number(entry.reps);
+  return weight * (1 + reps / 30);
+}
+
 function chartSeries(machineId, metric) {
-  const entries = getMachineSets(machineId)
-    .slice()
-    .sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt));
-  return entries.map((entry, index) => ({
+  const dailyEntries = heaviestSetByDay(machineId);
+  return dailyEntries.map(({ day, entry }, index) => ({
     id: entry.id,
-    xLabel: new Date(entry.loggedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    xLabel: new Date(`${day}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     value: metric === 'weight'
       ? Number(entry.weight)
       : metric === 'reps'
         ? Number(entry.reps)
-        : Number(entry.weight) * Number(entry.reps),
+        : metric === 'volume'
+          ? Number(entry.weight) * Number(entry.reps)
+          : e1rmForSet(entry),
     order: index + 1,
   })).filter((point) => Number.isFinite(point.value));
 }
@@ -362,10 +408,24 @@ function escapeAttr(value) {
   return safeText(value).replace(/"/g, '&quot;');
 }
 
+function renderMenuPopover() {
+  if (!state.menuOpen) return '';
+  return `
+    <div class="menu-popover" role="menu" aria-label="Main menu">
+      <button class="menu-item" data-action="nav-workouts" role="menuitem">Workouts</button>
+      <button class="menu-item" data-action="nav-bodyweight" role="menuitem">Lichaamsgewicht</button>
+    </div>
+  `;
+}
+
 function renderHeader({ title, subtitle = '', showBack = false, onBack = '', extraButtons = '' }) {
   return `
     <header class="header">
       <div class="header-left">
+        <div class="menu-anchor">
+          <button class="round-btn" data-action="toggle-menu" aria-label="Open menu">☰</button>
+          ${renderMenuPopover()}
+        </div>
         ${showBack ? `<button class="round-btn" data-action="${onBack}" aria-label="Go back">${icon.back}</button>` : ''}
         <div>
           <h1 class="screen-title">${safeText(title)}</h1>
@@ -566,18 +626,111 @@ function renderMachineDetailScreen() {
   `;
 }
 
+
+function validBodyweightEntries() {
+  return state.bodyweights
+    .filter((entry) => {
+      const weight = Number(entry.weight);
+      const loggedAt = new Date(entry.loggedAt);
+      return Number.isFinite(weight) && weight > 0 && !Number.isNaN(loggedAt.getTime());
+    })
+    .slice()
+    .sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt));
+}
+
+function bodyweightSeries() {
+  return validBodyweightEntries().map((entry, index) => ({
+    id: entry.id,
+    xLabel: new Date(entry.loggedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    value: Number(entry.weight),
+    order: index + 1,
+  }));
+}
+
+function renderBodyweightScreen() {
+  const series = bodyweightSeries();
+  return `
+    <section class="screen-shell">
+      <div class="screen-top fade-in">
+        ${renderHeader({
+          title: 'Lichaamsgewicht',
+          subtitle: `${state.bodyweights.length} meting${state.bodyweights.length === 1 ? '' : 'en'}`,
+        })}
+      </div>
+      <div class="screen-scroll">
+        <div class="detail-stack fade-in">
+          <section class="chart-card">
+            <div class="chart-meta">
+              <span>Gewicht per meetmoment</span>
+              <span>${series.length} punt${series.length === 1 ? '' : 'en'}</span>
+            </div>
+            <div class="chart-shell">
+              ${series.length ? buildChartSvg(series) : '<div class="chart-empty">Voeg je eerste gewicht toe om de grafiek te zien.</div>'}
+            </div>
+          </section>
+          <section class="date-group">
+            <form id="bodyweight-form" class="form-grid">
+              <div class="two-col">
+                <div class="field-group">
+                  <label>Datum</label>
+                  <input name="date" type="date" />
+                </div>
+                <div class="field-group">
+                  <label>Gewicht (kg) <span class="required-dot">•</span></label>
+                  <input name="weight" type="number" inputmode="decimal" step="0.1" min="0" required placeholder="Bijv. 81.4" />
+                </div>
+              </div>
+              <button type="submit" class="primary-btn">Meetmoment toevoegen</button>
+            </form>
+          </section>
+          ${state.bodyweights.length
+            ? `<section class="date-group">
+                <div class="date-heading">
+                  <h3>Eerdere meetmomenten</h3>
+                  <div class="muted">Nieuwste eerst</div>
+                </div>
+                <div class="set-stack">
+                  ${state.bodyweights.map((entry) => renderBodyweightRow(entry)).join('')}
+                </div>
+              </section>`
+            : `<section class="empty-state"><h2>Nog geen metingen</h2><p>Voeg een datum en gewicht in kilo toe. Laat je de datum leeg, dan gebruiken we vandaag.</p></section>`}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderBodyweightRow(entry) {
+  return `
+    <div class="list-item set-card">
+      <div class="set-card-top">
+        <div class="set-name">${safeText(formatDate(entry.loggedAt))}</div>
+        <div class="muted">${safeText(Number(entry.weight).toFixed(1))} kg</div>
+      </div>
+      <div class="item-subtitle">Toegevoegd: ${safeText(formatTime(entry.createdAt || entry.loggedAt))}</div>
+    </div>
+  `;
+}
+
+async function saveBodyweight(payload) {
+  const record = { id: uid('bw'), ...payload, createdAt: nowIso(), updatedAt: nowIso() };
+  await saveRecord('bodyweights', record);
+  await loadState();
+  render();
+}
+
 function renderChartCard(machineId) {
-  const metricLabels = { weight: 'Weight', reps: 'Reps', volume: 'Volume' };
+  const metricLabels = { heaviestE1rm: 'Heaviest e1RM', weight: 'Weight', reps: 'Reps', volume: 'Volume' };
   const series = chartSeries(machineId, state.chartMetric);
   return `
     <section class="chart-card slide-up">
-      <div class="segmented">
+      <div class="segmented segmented-4">
         ${Object.entries(metricLabels).map(([key, label]) => `
           <button class="${state.chartMetric === key ? 'active' : ''}" data-action="set-chart-metric" data-metric="${key}">${label}</button>
         `).join('')}
       </div>
       <div class="chart-meta">
-        <span>${metricLabels[state.chartMetric]} progression</span>
+        <span>${metricLabels[state.chartMetric]} per day</span>
         <span>${series.length} point${series.length === 1 ? '' : 's'}</span>
       </div>
       <div class="chart-shell">
@@ -823,6 +976,7 @@ function render() {
   if (state.route.screen === 'brands') screen = renderBrandsScreen();
   if (state.route.screen === 'machines') screen = renderMachinesScreen();
   if (state.route.screen === 'machineDetail') screen = renderMachineDetailScreen();
+  if (state.route.screen === 'bodyweight') screen = renderBodyweightScreen();
 
   app.innerHTML = `
     <main class="app">
@@ -889,7 +1043,23 @@ function wireForms() {
       closeModal();
     });
   }
+
+  const bodyweightForm = document.getElementById('bodyweight-form');
+  if (bodyweightForm) {
+    bodyweightForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(bodyweightForm);
+      const weightRaw = String(form.get('weight') || '').trim();
+      const dateRaw = String(form.get('date') || '').trim();
+      const weight = Number(weightRaw);
+      if (!Number.isFinite(weight) || weight <= 0) return;
+      const loggedAt = dateRaw ? parseDateTime(dateRaw, '12:00', nowIso()) : nowIso();
+      await saveBodyweight({ loggedAt, weight: weight.toFixed(1) });
+      bodyweightForm.reset();
+    });
+  }
 }
+
 
 async function saveBrand(name, existing = null) {
   const record = existing
@@ -1109,7 +1279,16 @@ function attachEventDelegation() {
     if (action === 'backdrop-close' && event.target === target) return closeModal();
     if (action === 'close-modal') return closeModal();
     if (action === 'close-sheet') return closeConfirmSheet();
+    if (action !== 'toggle-menu' && !target.closest('.menu-anchor')) state.menuOpen = false;
     if (action === 'undo-toast' && state.toast?.undo) return state.toast.undo();
+
+    if (action === 'toggle-menu') {
+      state.menuOpen = !state.menuOpen;
+      render();
+      return;
+    }
+    if (action === 'nav-workouts') return navigate({ screen: 'brands', brandId: null, machineId: null });
+    if (action === 'nav-bodyweight') return navigate({ screen: 'bodyweight', brandId: null, machineId: null });
 
     if (action === 'go-brands') return navigate({ screen: 'brands', brandId: null, machineId: null });
     if (action === 'go-machines') return navigate({ screen: 'machines', brandId: state.route.brandId, machineId: null });

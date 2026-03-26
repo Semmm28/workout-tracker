@@ -39,11 +39,13 @@ body {
     radial-gradient(circle at top, rgba(116, 137, 255, 0.14), transparent 28%),
     linear-gradient(180deg, #0d0e13 0%, #090a0d 100%);
   color: var(--text);
+  overflow-x: hidden;
 }
 
 body {
   overscroll-behavior-y: contain;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 button,
@@ -136,6 +138,7 @@ textarea {
   height: 100dvh;
   padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
   overflow: hidden;
+  overflow-x: hidden;
 }
 
 .phone-frame {
@@ -143,6 +146,7 @@ textarea {
   height: 100%;
   margin: 0 auto;
   min-height: 0;
+  overflow-x: clip;
 }
 
 .screen-shell {
@@ -165,6 +169,8 @@ textarea {
 .screen-scroll {
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
   overscroll-behavior: contain;
   padding: 4px 2px calc(12px + var(--safe-bottom));
   scrollbar-width: none;
@@ -190,6 +196,34 @@ textarea {
 
 .header-right {
   margin-left: auto;
+}
+
+.menu-anchor {
+  position: relative;
+}
+
+.menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 180px;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 14px;
+  background: #13151c;
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow);
+  z-index: 20;
+}
+
+.menu-item {
+  text-align: left;
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
 }
 
 .screen-title {
@@ -481,6 +515,10 @@ textarea {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.segmented.segmented-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .segmented button {
   min-height: 40px;
   border-radius: 14px;
@@ -665,7 +703,9 @@ textarea {
 
 .modal {
   max-height: min(92vh, 860px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
 }
 
 .sheet {
@@ -808,6 +848,10 @@ label {
 
   .list-item {
     padding: 15px 16px;
+  }
+
+  .menu-popover {
+    min-width: 160px;
   }
 
   .item-leading {

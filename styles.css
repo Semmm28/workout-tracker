@@ -35,6 +35,7 @@ body {
   margin: 0;
   min-height: 100%;
   height: 100%;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top, rgba(116, 137, 255, 0.14), transparent 28%),
     linear-gradient(180deg, #0d0e13 0%, #090a0d 100%);
@@ -44,6 +45,7 @@ body {
 body {
   overscroll-behavior-y: contain;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 button,
@@ -89,6 +91,7 @@ textarea {
   min-height: 100dvh;
   height: 100vh;
   height: 100dvh;
+  overflow-x: hidden;
 }
 
 .loading-screen {
@@ -136,6 +139,7 @@ textarea {
   height: 100dvh;
   padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
   overflow: hidden;
+  overflow-x: clip;
 }
 
 .phone-frame {
@@ -143,6 +147,7 @@ textarea {
   height: 100%;
   margin: 0 auto;
   min-height: 0;
+  overflow-x: hidden;
 }
 
 .screen-shell {
@@ -151,6 +156,7 @@ textarea {
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
   min-height: 0;
+  overflow-x: hidden;
 }
 
 .screen-top {
@@ -165,6 +171,7 @@ textarea {
 .screen-scroll {
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   padding: 4px 2px calc(12px + var(--safe-bottom));
   scrollbar-width: none;
@@ -342,6 +349,7 @@ textarea {
 .list-wrap {
   display: grid;
   gap: 12px;
+  overflow-x: hidden;
 }
 
 .screen-scroll > .list-wrap,
@@ -557,6 +565,7 @@ textarea {
 .detail-stack {
   display: grid;
   gap: 14px;
+  overflow-x: hidden;
 }
 
 .date-group {
@@ -639,6 +648,7 @@ textarea {
 
 .modal-backdrop,
 .sheet-backdrop,
+.menu-backdrop,
 .toast-layer {
   position: fixed;
   inset: 0;
@@ -646,12 +656,14 @@ textarea {
 }
 
 .modal-backdrop,
-.sheet-backdrop {
+.sheet-backdrop,
+.menu-backdrop {
   background: rgba(0, 0, 0, 0.48);
   backdrop-filter: blur(10px);
   display: grid;
   place-items: end center;
   padding: 16px;
+  overflow-x: hidden;
 }
 
 .modal,
@@ -665,11 +677,14 @@ textarea {
 
 .modal {
   max-height: min(92vh, 860px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  touch-action: pan-y;
 }
 
 .sheet {
   padding: 10px;
+  overflow-x: hidden;
 }
 
 .sheet-header,
@@ -685,6 +700,7 @@ textarea {
   padding: 0 20px 20px;
   display: grid;
   gap: 16px;
+  overflow-x: hidden;
 }
 
 .form-grid {
@@ -771,6 +787,66 @@ label {
   border: 0;
   color: var(--accent-strong);
   font-weight: 700;
+}
+
+.bodyweight-form {
+  display: grid;
+  gap: 16px;
+}
+
+.bodyweight-footer {
+  position: static;
+  background: none;
+  padding-top: 0;
+}
+
+.menu-backdrop {
+  z-index: 35;
+}
+
+.menu-panel {
+  width: min(100%, 420px);
+  background: linear-gradient(180deg, #171922, #101116);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 12px;
+}
+
+.menu-header h2 {
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.menu-actions {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.menu-action {
+  min-height: 52px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  text-align: left;
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+.menu-action.active {
+  background: rgba(157, 184, 255, 0.16);
+  border-color: rgba(157, 184, 255, 0.28);
+  color: var(--accent-strong);
 }
 
 .fade-in {

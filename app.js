@@ -1,6 +1,12 @@
 const DB_NAME = 'workout-tracker-db';
 const DB_VERSION = 2;
 const ACTION_WIDTH = 176;
+const CHART_SERIES_MODE_KEY = 'workout-tracker.chartSeriesMode';
+const CHART_SERIES_OPTIONS = {
+  e1rmMax: 'Heaviest e1RM per day',
+  first: 'First set per day',
+  last: 'Last set per day',
+};
 
 const state = {
   ready: false,
@@ -15,6 +21,9 @@ const state = {
   confirmSheet: null,
   toast: null,
   menuOpen: false,
+  preferences: {
+    chartSeriesMode: 'e1rmMax',
+  },
 };
 
 const app = document.getElementById('app');
@@ -118,6 +127,27 @@ function debounce(fn, ms = 120) {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), ms);
   };
+}
+
+function readChartSeriesMode() {
+  try {
+    const value = localStorage.getItem(CHART_SERIES_MODE_KEY);
+    return CHART_SERIES_OPTIONS[value] ? value : 'e1rmMax';
+  } catch (error) {
+    return 'e1rmMax';
+  }
+}
+
+function persistChartSeriesMode(mode) {
+  try {
+    localStorage.setItem(CHART_SERIES_MODE_KEY, mode);
+  } catch (error) {
+    console.warn('Could not persist chart series mode:', error);
+  }
+}
+
+function estimateE1rm(weight, reps) {
+  return weight * (1 + reps / 30);
 }
 
 function safeText(value) {
@@ -285,6 +315,7 @@ async function loadState() {
   state.machines = machines.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
   state.sets = sets.sort((a, b) => new Date(b.loggedAt) - new Date(a.loggedAt));
   state.bodyweights = bodyweights.sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt));
+  state.preferences.chartSeriesMode = readChartSeriesMode();
 }
 
 function pushHistory(route) {
@@ -378,7 +409,8 @@ function groupedSets(machineId) {
 
 function chartSeries(machineId, metric) {
   if (metric !== 'e1rm') return [];
-  const bestByDay = new Map();
+  const mode = state.preferences.chartSeriesMode;
+  const selectedByDay = new Map();
 
   getMachineSets(machineId).forEach((entry) => {
     const weight = Number(entry.weight);
@@ -386,18 +418,48 @@ function chartSeries(machineId, metric) {
     const dayKey = formatDateKey(entry.loggedAt);
     if (!dayKey || !Number.isFinite(weight) || !Number.isFinite(reps)) return;
 
-    const current = bestByDay.get(dayKey);
-    if (!current || weight > current.weight || (weight === current.weight && reps > current.reps)) {
-      bestByDay.set(dayKey, { entry, weight, reps, dayKey });
+    const candidate = {
+      entry,
+      weight,
+      reps,
+      dayKey,
+      e1rm: estimateE1rm(weight, reps),
+      loggedAt: new Date(entry.loggedAt).getTime(),
+    };
+    const current = selectedByDay.get(dayKey);
+
+    if (!current) {
+      selectedByDay.set(dayKey, candidate);
+      return;
+    }
+
+    if (mode === 'first' && candidate.loggedAt < current.loggedAt) {
+      selectedByDay.set(dayKey, candidate);
+      return;
+    }
+
+    if (mode === 'last' && candidate.loggedAt > current.loggedAt) {
+      selectedByDay.set(dayKey, candidate);
+      return;
+    }
+
+    if (
+      mode === 'e1rmMax'
+      && (
+        candidate.e1rm > current.e1rm
+        || (candidate.e1rm === current.e1rm && candidate.loggedAt > current.loggedAt)
+      )
+    ) {
+      selectedByDay.set(dayKey, candidate);
     }
   });
 
-  return Array.from(bestByDay.values())
+  return Array.from(selectedByDay.values())
     .sort((a, b) => new Date(a.dayKey) - new Date(b.dayKey))
     .map((item, index) => ({
       id: item.entry.id,
       xLabel: new Date(item.dayKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      value: item.weight * (1 + item.reps / 30),
+      value: item.e1rm,
       order: index + 1,
     }));
 }
@@ -657,11 +719,17 @@ function renderMachineDetailScreen() {
 
 function renderChartCard(machineId) {
   const series = chartSeries(machineId, 'e1rm');
+  const chartSeriesMode = state.preferences.chartSeriesMode;
   return `
     <section class="chart-card slide-up">
       <div class="chart-meta">
-        <span>Heaviest e1RM per day</span>
+        <span>${safeText(CHART_SERIES_OPTIONS[chartSeriesMode])}</span>
         <span>${series.length} point${series.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="segmented chart-series-picker" role="group" aria-label="Chart series mode">
+        <button type="button" class="${chartSeriesMode === 'e1rmMax' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="e1rmMax">Best e1RM</button>
+        <button type="button" class="${chartSeriesMode === 'first' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="first">First set</button>
+        <button type="button" class="${chartSeriesMode === 'last' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="last">Last set</button>
       </div>
       <div class="chart-shell">
         ${series.length ? buildChartSvg(series) : '<div class="chart-empty">Add a few sets to see your progression over time.</div>'}
@@ -1445,6 +1513,12 @@ function attachEventDelegation() {
     if (action === 'nav-settings') return navigate({ screen: 'settings', brandId: null, machineId: null });
     if (action === 'export-data') return exportAllData();
     if (action === 'trigger-import') return document.getElementById('import-file-input')?.click();
+    if (action === 'set-chart-series-mode' && CHART_SERIES_OPTIONS[id]) {
+      state.preferences.chartSeriesMode = id;
+      persistChartSeriesMode(id);
+      render();
+      return;
+    }
 
     if (action === 'open-brand-create') return openBrandModal('create');
     if (action === 'open-machine-create') return openMachineModal('create');

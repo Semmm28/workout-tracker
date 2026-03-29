@@ -479,6 +479,16 @@ textarea {
   gap: 14px;
 }
 
+.chart-series-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.chart-series-picker span {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 .segmented {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));

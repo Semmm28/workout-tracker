@@ -747,13 +747,16 @@ function renderChartCard(machineId) {
         <span>${safeText(CHART_SERIES_OPTIONS[chartSeriesMode])}</span>
         <span>${series.length} point${series.length === 1 ? '' : 's'}</span>
       </div>
-      <div class="segmented chart-series-picker" role="group" aria-label="Chart series mode">
-        <button type="button" class="${chartSeriesMode === 'e1rmMax' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="e1rmMax">Best e1RM</button>
-        <button type="button" class="${chartSeriesMode === 'volumeMax' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="volumeMax">Top volume</button>
-        <button type="button" class="${chartSeriesMode === 'set1' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="set1">Set 1</button>
-        <button type="button" class="${chartSeriesMode === 'set2' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="set2">Set 2</button>
-        <button type="button" class="${chartSeriesMode === 'set3' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="set3">Set 3</button>
-      </div>
+      <label class="chart-series-picker">
+        <span>Graph view</span>
+        <select data-action="set-chart-series-mode">
+          <option value="e1rmMax" ${chartSeriesMode === 'e1rmMax' ? 'selected' : ''}>Best e1RM</option>
+          <option value="volumeMax" ${chartSeriesMode === 'volumeMax' ? 'selected' : ''}>Top volume</option>
+          <option value="set1" ${chartSeriesMode === 'set1' ? 'selected' : ''}>Set 1</option>
+          <option value="set2" ${chartSeriesMode === 'set2' ? 'selected' : ''}>Set 2</option>
+          <option value="set3" ${chartSeriesMode === 'set3' ? 'selected' : ''}>Set 3</option>
+        </select>
+      </label>
       <div class="chart-shell">
         ${series.length ? buildChartSvg(series) : '<div class="chart-empty">Add a few sets to see your progression over time.</div>'}
       </div>
@@ -1609,6 +1612,19 @@ function attachEventDelegation() {
     if (action === 'delete-set') return handleDeleteSet(id);
     if (action === 'delete-bodyweight') return handleDeleteBodyweight(id);
     if (action === 'confirm-sheet' && state.confirmSheet?.confirm) return state.confirmSheet.confirm();
+  });
+
+  document.addEventListener('change', (event) => {
+    const target = event.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
+    const id = target.dataset.id || target.value;
+
+    if (action === 'set-chart-series-mode' && CHART_SERIES_OPTIONS[id]) {
+      state.preferences.chartSeriesMode = id;
+      persistChartSeriesMode(id);
+      render();
+    }
   });
 }
 

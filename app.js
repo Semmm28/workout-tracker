@@ -4,8 +4,10 @@ const ACTION_WIDTH = 176;
 const CHART_SERIES_MODE_KEY = 'workout-tracker.chartSeriesMode';
 const CHART_SERIES_OPTIONS = {
   e1rmMax: 'Heaviest e1RM per day',
-  first: 'First set per day',
-  last: 'Last set per day',
+  volumeMax: 'Highest volume per day',
+  set1: '1st set e1RM per day',
+  set2: '2nd set e1RM per day',
+  set3: '3rd set e1RM per day',
 };
 
 const state = {
@@ -132,6 +134,7 @@ function debounce(fn, ms = 120) {
 function readChartSeriesMode() {
   try {
     const value = localStorage.getItem(CHART_SERIES_MODE_KEY);
+    if (value === 'first') return 'set1';
     return CHART_SERIES_OPTIONS[value] ? value : 'e1rmMax';
   } catch (error) {
     return 'e1rmMax';
@@ -407,61 +410,78 @@ function groupedSets(machineId) {
     }));
 }
 
+function chartSeriesModeMetric(mode) {
+  return mode === 'volumeMax' ? 'volume' : 'e1rm';
+}
+
+function chartSeriesModeSetIndex(mode) {
+  const match = /^set(\d+)$/.exec(mode);
+  if (!match) return null;
+  return Number(match[1]) - 1;
+}
+
 function chartSeries(machineId, metric) {
-  if (metric !== 'e1rm') return [];
   const mode = state.preferences.chartSeriesMode;
-  const selectedByDay = new Map();
+  if (metric !== chartSeriesModeMetric(mode)) return [];
 
-  getMachineSets(machineId).forEach((entry) => {
-    const weight = Number(entry.weight);
-    const reps = Number(entry.reps);
-    const dayKey = formatDateKey(entry.loggedAt);
-    if (!dayKey || !Number.isFinite(weight) || !Number.isFinite(reps)) return;
+  const dayGroups = groupedSets(machineId)
+    .map((group) => {
+      const dayKey = formatDateKey(group.items[0]?.loggedAt);
+      const items = group.items
+        .map((entry) => {
+          const weight = Number(entry.weight);
+          const reps = Number(entry.reps);
+          if (!Number.isFinite(weight) || !Number.isFinite(reps)) return null;
+          return {
+            entry,
+            weight,
+            reps,
+            dayKey,
+            e1rm: estimateE1rm(weight, reps),
+            volume: weight * reps,
+            loggedAt: new Date(entry.loggedAt).getTime(),
+          };
+        })
+        .filter(Boolean);
 
-    const candidate = {
-      entry,
-      weight,
-      reps,
-      dayKey,
-      e1rm: estimateE1rm(weight, reps),
-      loggedAt: new Date(entry.loggedAt).getTime(),
-    };
-    const current = selectedByDay.get(dayKey);
+      if (!dayKey || !items.length) return null;
+      return { dayKey, items };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.dayKey) - new Date(b.dayKey));
 
-    if (!current) {
-      selectedByDay.set(dayKey, candidate);
-      return;
-    }
+  return dayGroups
+    .map((group, index) => {
+      const setIndex = chartSeriesModeSetIndex(mode);
+      let selected = null;
 
-    if (mode === 'first' && candidate.loggedAt < current.loggedAt) {
-      selectedByDay.set(dayKey, candidate);
-      return;
-    }
+      if (mode === 'e1rmMax') {
+        selected = group.items.reduce((best, item) => {
+          if (!best) return item;
+          if (item.e1rm > best.e1rm) return item;
+          if (item.e1rm === best.e1rm && item.loggedAt > best.loggedAt) return item;
+          return best;
+        }, null);
+      } else if (mode === 'volumeMax') {
+        selected = group.items.reduce((best, item) => {
+          if (!best) return item;
+          if (item.volume > best.volume) return item;
+          if (item.volume === best.volume && item.loggedAt > best.loggedAt) return item;
+          return best;
+        }, null);
+      } else if (setIndex !== null) {
+        selected = group.items[setIndex] || null;
+      }
 
-    if (mode === 'last' && candidate.loggedAt > current.loggedAt) {
-      selectedByDay.set(dayKey, candidate);
-      return;
-    }
-
-    if (
-      mode === 'e1rmMax'
-      && (
-        candidate.e1rm > current.e1rm
-        || (candidate.e1rm === current.e1rm && candidate.loggedAt > current.loggedAt)
-      )
-    ) {
-      selectedByDay.set(dayKey, candidate);
-    }
-  });
-
-  return Array.from(selectedByDay.values())
-    .sort((a, b) => new Date(a.dayKey) - new Date(b.dayKey))
-    .map((item, index) => ({
-      id: item.entry.id,
-      xLabel: new Date(item.dayKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      value: item.e1rm,
-      order: index + 1,
-    }));
+      if (!selected) return null;
+      return {
+        id: selected.entry.id,
+        xLabel: new Date(group.dayKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: metric === 'volume' ? selected.volume : selected.e1rm,
+        order: index + 1,
+      };
+    })
+    .filter(Boolean);
 }
 
 function bodyweightSeries() {
@@ -718,8 +738,9 @@ function renderMachineDetailScreen() {
 }
 
 function renderChartCard(machineId) {
-  const series = chartSeries(machineId, 'e1rm');
   const chartSeriesMode = state.preferences.chartSeriesMode;
+  const metric = chartSeriesModeMetric(chartSeriesMode);
+  const series = chartSeries(machineId, metric);
   return `
     <section class="chart-card slide-up">
       <div class="chart-meta">
@@ -728,8 +749,10 @@ function renderChartCard(machineId) {
       </div>
       <div class="segmented chart-series-picker" role="group" aria-label="Chart series mode">
         <button type="button" class="${chartSeriesMode === 'e1rmMax' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="e1rmMax">Best e1RM</button>
-        <button type="button" class="${chartSeriesMode === 'first' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="first">First set</button>
-        <button type="button" class="${chartSeriesMode === 'last' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="last">Last set</button>
+        <button type="button" class="${chartSeriesMode === 'volumeMax' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="volumeMax">Top volume</button>
+        <button type="button" class="${chartSeriesMode === 'set1' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="set1">Set 1</button>
+        <button type="button" class="${chartSeriesMode === 'set2' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="set2">Set 2</button>
+        <button type="button" class="${chartSeriesMode === 'set3' ? 'active' : ''}" data-action="set-chart-series-mode" data-id="set3">Set 3</button>
       </div>
       <div class="chart-shell">
         ${series.length ? buildChartSvg(series) : '<div class="chart-empty">Add a few sets to see your progression over time.</div>'}

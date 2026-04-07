@@ -326,6 +326,7 @@ function pushHistory(route) {
   if (route.screen === 'brands') url.hash = '#/brands';
   if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
   if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
+  if (route.screen === 'recentActivity') url.hash = '#/recent-activity';
   if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
   if (route.screen === 'settings') url.hash = '#/settings';
   history.pushState(route, '', url);
@@ -334,6 +335,7 @@ function pushHistory(route) {
 function deriveRouteFromHash() {
   const hash = location.hash.replace(/^#\/?/, '');
   if (!hash || hash === 'brands') return { screen: 'brands', brandId: null, machineId: null };
+  if (hash === 'recent-activity') return { screen: 'recentActivity', brandId: null, machineId: null };
   if (hash === 'bodyweight') return { screen: 'bodyweight', brandId: null, machineId: null };
   if (hash === 'settings') return { screen: 'settings', brandId: null, machineId: null };
   const parts = hash.split('/');
@@ -352,6 +354,7 @@ function navigate(route, replace = false) {
     if (route.screen === 'brands') url.hash = '#/brands';
     if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
     if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
+    if (route.screen === 'recentActivity') url.hash = '#/recent-activity';
     if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
     if (route.screen === 'settings') url.hash = '#/settings';
     history.replaceState(route, '', url);
@@ -394,6 +397,15 @@ function getMachineSets(machineId) {
   return state.sets.filter((entry) => entry.machineId === machineId);
 }
 
+function machineForSet(entry) {
+  return state.machines.find((machine) => machine.id === entry.machineId) || null;
+}
+
+function brandForMachine(machine) {
+  if (!machine) return null;
+  return state.brands.find((brand) => brand.id === machine.brandId) || null;
+}
+
 function groupedSets(machineId) {
   const machineSets = getMachineSets(machineId);
   const byDate = new Map();
@@ -407,6 +419,27 @@ function groupedSets(machineId) {
     .map(([, items]) => ({
       displayDate: formatDate(items[0].loggedAt),
       items: items.sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt)),
+    }));
+}
+
+function groupedRecentActivity() {
+  const byDate = new Map();
+
+  state.sets.forEach((entry) => {
+    const key = formatDateKey(entry.loggedAt);
+    if (!key) return;
+
+    const machine = machineForSet(entry);
+    const brand = brandForMachine(machine);
+    if (!byDate.has(key)) byDate.set(key, []);
+    byDate.get(key).push({ entry, machine, brand });
+  });
+
+  return Array.from(byDate.entries())
+    .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+    .map(([, items]) => ({
+      displayDate: formatDate(items[0].entry.loggedAt),
+      items: items.sort((a, b) => new Date(a.entry.loggedAt) - new Date(b.entry.loggedAt)),
     }));
 }
 
@@ -845,6 +878,35 @@ function renderBodyweightRow(entry) {
   return renderSwipeContainer('bodyweight', entry.id, content, false);
 }
 
+function renderRecentActivityScreen() {
+  const groups = groupedRecentActivity();
+
+  return `
+    <section class="screen-shell">
+      <div class="screen-top fade-in">
+        ${renderHeader({
+          title: 'Recente activiteit',
+          subtitle: `${state.sets.length} gelogde set${state.sets.length === 1 ? '' : 's'}`,
+        })}
+      </div>
+      <div class="screen-scroll">
+        <div class="detail-stack fade-in">
+          ${groups.length
+            ? groups.map((group) => renderRecentActivityGroup(group)).join('')
+            : `
+              <section class="empty-state">
+                <div class="loading-logo">RA</div>
+                <h2>Nog geen recente activiteit</h2>
+                <p>Zodra je sets logt, verschijnt hier per dag een overzicht van je trainingen.</p>
+              </section>
+            `
+          }
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function renderMenu() {
   if (!state.menuOpen) return '';
   return `
@@ -855,7 +917,8 @@ function renderMenu() {
           <button class="round-btn" data-action="close-menu" aria-label="Close menu">${icon.close}</button>
         </div>
         <div class="menu-actions">
-          <button class="menu-action ${state.route.screen !== 'bodyweight' ? 'active' : ''}" data-action="nav-workouts">Workouts</button>
+          <button class="menu-action ${state.route.screen === 'brands' || state.route.screen === 'machines' || state.route.screen === 'machineDetail' ? 'active' : ''}" data-action="nav-workouts">Workouts</button>
+          <button class="menu-action ${state.route.screen === 'recentActivity' ? 'active' : ''}" data-action="nav-recent-activity">Recente activiteit</button>
           <button class="menu-action ${state.route.screen === 'bodyweight' ? 'active' : ''}" data-action="nav-bodyweight">Lichaamsgewicht</button>
           <button class="menu-action ${state.route.screen === 'settings' ? 'active' : ''}" data-action="nav-settings">Instellingen</button>
         </div>
@@ -952,6 +1015,20 @@ function renderDateGroup(group) {
   `;
 }
 
+function renderRecentActivityGroup(group) {
+  return `
+    <section class="date-group slide-up">
+      <div class="date-heading">
+        <h3>${safeText(group.displayDate)}</h3>
+        <div class="muted">${group.items.length} set${group.items.length === 1 ? '' : 's'}</div>
+      </div>
+      <div class="set-stack">
+        ${group.items.map((item, idx) => renderRecentActivityRow(item, idx + 1)).join('')}
+      </div>
+    </section>
+  `;
+}
+
 function renderSetRow(entry, setNumber) {
   const optional = [];
   if (entry.rpe) optional.push(`<div class="tag-chip">RPE ${safeText(entry.rpe)}</div>`);
@@ -978,6 +1055,41 @@ function renderSetRow(entry, setNumber) {
   `;
 
   return renderSwipeContainer('set', entry.id, content, false);
+}
+
+function renderRecentActivityRow(item, setNumber) {
+  const { entry, machine, brand } = item;
+  const optional = [`<div class="tag-chip">Set ${setNumber}</div>`];
+  if (brand?.name) optional.push(`<div class="tag-chip">${safeText(brand.name)}</div>`);
+  if (entry.rpe) optional.push(`<div class="tag-chip">RPE ${safeText(entry.rpe)}</div>`);
+  if (entry.restTime) optional.push(`<div class="tag-chip">Rest ${safeText(entry.restTime)}</div>`);
+  if (entry.duration) optional.push(`<div class="tag-chip">Duration ${safeText(entry.duration)}</div>`);
+  if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
+
+  return `
+    <div
+      class="list-item set-card"
+      role="button"
+      tabindex="0"
+      data-action="open-recent-machine"
+      data-id="${entry.machineId}"
+      data-brand-id="${machine?.brandId || ''}"
+    >
+      <div class="set-card-top">
+        <div>
+          <div class="set-name">${safeText(machine?.name || 'Unknown machine')}</div>
+          <div class="item-subtitle">${safeText(formatTime(entry.loggedAt))}</div>
+        </div>
+        <div class="muted">${safeText(new Date(entry.loggedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}</div>
+      </div>
+      <div class="set-primary">
+        <div class="metric-chip"><strong>Weight</strong><span>${safeText(entry.weight)}</span></div>
+        <div class="metric-chip"><strong>Reps</strong><span>${safeText(entry.reps)}</span></div>
+        <div class="metric-chip"><strong>Volume</strong><span>${safeText(Number(entry.weight) * Number(entry.reps))}</span></div>
+      </div>
+      <div class="optional-row">${optional.join('')}</div>
+    </div>
+  `;
 }
 
 function renderSwipeContainer(type, id, content, disabled) {
@@ -1142,6 +1254,7 @@ function render() {
   if (state.route.screen === 'brands') screen = renderBrandsScreen();
   if (state.route.screen === 'machines') screen = renderMachinesScreen();
   if (state.route.screen === 'machineDetail') screen = renderMachineDetailScreen();
+  if (state.route.screen === 'recentActivity') screen = renderRecentActivityScreen();
   if (state.route.screen === 'bodyweight') screen = renderBodyweightScreen();
   if (state.route.screen === 'settings') screen = renderSettingsScreen();
 
@@ -1523,6 +1636,7 @@ function attachEventDelegation() {
     if (!target) return;
     const action = target.dataset.action;
     const id = target.dataset.id;
+    const brandId = target.dataset.brandId;
 
     if (action === 'noop') return;
     if (action === 'backdrop-close' && event.target === target) return closeModal();
@@ -1535,6 +1649,7 @@ function attachEventDelegation() {
     if (action === 'go-brands') return navigate({ screen: 'brands', brandId: null, machineId: null });
     if (action === 'go-machines') return navigate({ screen: 'machines', brandId: state.route.brandId, machineId: null });
     if (action === 'nav-workouts') return navigate({ screen: 'brands', brandId: null, machineId: null });
+    if (action === 'nav-recent-activity') return navigate({ screen: 'recentActivity', brandId: null, machineId: null });
     if (action === 'nav-bodyweight') return navigate({ screen: 'bodyweight', brandId: null, machineId: null });
     if (action === 'nav-settings') return navigate({ screen: 'settings', brandId: null, machineId: null });
     if (action === 'export-data') return exportAllData();
@@ -1552,6 +1667,7 @@ function attachEventDelegation() {
 
     if (action === 'open-brand') return navigate({ screen: 'machines', brandId: id, machineId: null });
     if (action === 'open-machine') return navigate({ screen: 'machineDetail', brandId: state.route.brandId, machineId: id });
+    if (action === 'open-recent-machine' && brandId) return navigate({ screen: 'machineDetail', brandId, machineId: id });
 
     if (action === 'toggle-brand-reorder') {
       state.reorder.brands = !state.reorder.brands;

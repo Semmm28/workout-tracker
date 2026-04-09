@@ -127,7 +127,9 @@ textarea {
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 1.6rem;
+  font-size: clamp(0.98rem, 2.2vw, 1.35rem);
+  letter-spacing: 0.02em;
+  line-height: 1;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
     linear-gradient(135deg, rgba(157, 184, 255, 0.22), rgba(255, 255, 255, 0.03));
@@ -343,7 +345,7 @@ textarea {
   margin: 0 auto 8px;
   width: 72px;
   height: 72px;
-  font-size: 1.35rem;
+  font-size: clamp(0.92rem, 2vw, 1.1rem);
 }
 
 .list-wrap {
@@ -422,6 +424,9 @@ textarea {
   display: grid;
   place-items: center;
   font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
   color: var(--accent-strong);
   background: linear-gradient(180deg, rgba(157, 184, 255, 0.18), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(157, 184, 255, 0.12);
@@ -447,6 +452,14 @@ textarea {
   color: var(--text-secondary);
   font-size: 0.88rem;
   margin-top: 4px;
+}
+
+
+.item-note-preview {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .item-tail {
@@ -477,6 +490,29 @@ textarea {
   padding: 18px;
   display: grid;
   gap: 14px;
+}
+
+
+.machine-note-card {
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(157, 184, 255, 0.18);
+  background: linear-gradient(180deg, rgba(157, 184, 255, 0.12), rgba(255, 255, 255, 0.04));
+  box-shadow: var(--shadow);
+}
+
+.machine-note-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.machine-note-text {
+  font-size: 0.95rem;
+  line-height: 1.45;
 }
 
 .chart-series-picker {
@@ -595,6 +631,39 @@ textarea {
 .date-heading h3 {
   margin: 0;
   font-size: 1.02rem;
+}
+
+
+.date-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+.date-toggle-copy {
+  min-width: 0;
+  display: grid;
+}
+
+.date-toggle-title {
+  font-size: 1.02rem;
+  font-weight: 650;
+}
+
+.date-toggle-icon {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  transition: transform 180ms ease;
+}
+
+.date-group.is-expanded .date-toggle-icon {
+  transform: rotate(90deg);
 }
 
 .set-stack {

@@ -19,6 +19,7 @@ const state = {
   route: { screen: 'brands', brandId: null, machineId: null },
   search: { brands: '', machines: '' },
   reorder: { brands: false, machines: false },
+  recentActivityExpanded: {},
   modal: null,
   confirmSheet: null,
   toast: null,
@@ -123,6 +124,27 @@ function formatWeight(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return '';
   return Number.isInteger(number) ? `${number}` : number.toFixed(1);
+}
+
+
+function buildInitials(name) {
+  const value = String(name || '').trim();
+  if (!value) return '--';
+
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    const cleaned = words[0].replace(/[^\p{L}\p{N}]/gu, '');
+    return (cleaned || words[0]).slice(0, 2).toUpperCase();
+  }
+
+  return words.map((word) => word[0]).join('').toUpperCase();
+}
+
+function previewText(value, maxLength = 72) {
+  const textValue = String(value || '').trim();
+  if (!textValue) return '';
+  if (textValue.length <= maxLength) return textValue;
+  return `${textValue.slice(0, maxLength).trimEnd()}…`;
 }
 
 function debounce(fn, ms = 120) {
@@ -439,9 +461,11 @@ function groupedRecentActivity() {
 
   return Array.from(byDate.entries())
     .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-    .map(([, items]) => ({
+    .map(([key, items]) => ({
+      key,
       displayDate: formatDate(items[0].entry.loggedAt),
       items: items.sort((a, b) => new Date(a.entry.loggedAt) - new Date(b.entry.loggedAt)),
+      expanded: Boolean(state.recentActivityExpanded[key]),
     }));
 }
 
@@ -634,7 +658,7 @@ function renderBrandRow(brand, index, total) {
 
   const content = `
     <div class="list-item" role="button" tabindex="0" data-action="open-brand" data-id="${brand.id}">
-      <div class="item-leading">${safeText(brand.name.slice(0, 2).toUpperCase())}</div>
+      <div class="item-leading">${safeText(buildInitials(brand.name))}</div>
       <div class="item-body">
         <div class="item-title">${safeText(brand.name)}</div>
         <div class="item-subtitle">${machineCount} machine${machineCount === 1 ? '' : 's'}</div>
@@ -666,7 +690,7 @@ function renderMachinesScreen() {
     ? `<div class="list-wrap">${machines.map((machine, index) => renderMachineRow(machine, index, machines.length)).join('')}</div>`
     : `
       <section class="empty-state fade-in">
-        <div class="loading-logo">${safeText(brand.name.slice(0, 2).toUpperCase())}</div>
+        <div class="loading-logo">${safeText(buildInitials(brand.name))}</div>
         <h2>No machines yet</h2>
         <p>Add equipment under ${safeText(brand.name)} to keep your workout history organized.</p>
         <div><button class="primary-btn" data-action="open-machine-create">Add machine</button></div>
@@ -713,10 +737,11 @@ function renderMachineRow(machine, index, total) {
 
   const content = `
     <div class="list-item" role="button" tabindex="0" data-action="open-machine" data-id="${machine.id}">
-      <div class="item-leading">${safeText(machine.name.slice(0, 2).toUpperCase())}</div>
+      <div class="item-leading">${safeText(buildInitials(machine.name))}</div>
       <div class="item-body">
         <div class="item-title">${safeText(machine.name)}</div>
         <div class="item-subtitle">${count} logged set${count === 1 ? '' : 's'}</div>
+        ${machine.note ? `<div class="item-note-preview">${safeText(previewText(machine.note, 64))}</div>` : ''}
       </div>
       ${tail}
     </div>
@@ -754,12 +779,18 @@ function renderMachineDetailScreen() {
       </div>
       <div class="screen-scroll">
         <div class="detail-stack fade-in">
+          ${machine.note ? `
+            <section class="machine-note-card slide-up">
+              <div class="machine-note-label">Machine note</div>
+              <div class="machine-note-text">${safeText(machine.note)}</div>
+            </section>
+          ` : ''}
           ${renderChartCard(machine.id)}
           ${groups.length
             ? groups.map((group) => renderDateGroup(group)).join('')
             : `
               <section class="empty-state">
-                <div class="loading-logo">${safeText(machine.name.slice(0, 2).toUpperCase())}</div>
+                <div class="loading-logo">${safeText(buildInitials(machine.name))}</div>
                 <h2>No sets logged yet</h2>
                 <p>Track weight and reps to build a progression chart and workout history.</p>
                 <div><button class="primary-btn" data-action="open-set-create">Add set</button></div>
@@ -1028,23 +1059,25 @@ function renderDateGroup(group) {
 
 function renderRecentActivityGroup(group) {
   return `
-    <section class="date-group slide-up">
-      <div class="date-heading">
-        <h3>${safeText(group.displayDate)}</h3>
-        <div class="muted">${group.items.length} set${group.items.length === 1 ? '' : 's'}</div>
-      </div>
-      <div class="set-stack">
-        ${group.items.map((item, idx) => renderRecentActivityRow(item, idx + 1)).join('')}
-      </div>
+    <section class="date-group slide-up ${group.expanded ? 'is-expanded' : ''}">
+      <button class="date-toggle" data-action="toggle-recent-group" data-id="${group.key}" aria-expanded="${group.expanded ? 'true' : 'false'}">
+        <span class="date-toggle-copy">
+          <span class="date-toggle-title">${safeText(group.displayDate)}</span>
+          <span class="muted">${group.items.length} set${group.items.length === 1 ? '' : 's'}</span>
+        </span>
+        <span class="date-toggle-icon" aria-hidden="true">${icon.chevron}</span>
+      </button>
+      ${group.expanded ? `
+        <div class="set-stack">
+          ${group.items.map((item, idx) => renderRecentActivityRow(item, idx + 1)).join('')}
+        </div>
+      ` : ''}
     </section>
   `;
 }
 
 function renderSetRow(entry, setNumber) {
   const optional = [];
-  if (entry.rpe) optional.push(`<div class="tag-chip">RPE ${safeText(entry.rpe)}</div>`);
-  if (entry.restTime) optional.push(`<div class="tag-chip">Rest ${safeText(entry.restTime)}</div>`);
-  if (entry.duration) optional.push(`<div class="tag-chip">Duration ${safeText(entry.duration)}</div>`);
   if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
 
   const content = `
@@ -1072,9 +1105,6 @@ function renderRecentActivityRow(item, setNumber) {
   const { entry, machine, brand } = item;
   const optional = [`<div class="tag-chip">Set ${setNumber}</div>`];
   if (brand?.name) optional.push(`<div class="tag-chip">${safeText(brand.name)}</div>`);
-  if (entry.rpe) optional.push(`<div class="tag-chip">RPE ${safeText(entry.rpe)}</div>`);
-  if (entry.restTime) optional.push(`<div class="tag-chip">Rest ${safeText(entry.restTime)}</div>`);
-  if (entry.duration) optional.push(`<div class="tag-chip">Duration ${safeText(entry.duration)}</div>`);
   if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
 
   return `
@@ -1144,6 +1174,12 @@ function renderModal() {
                 <label>${isBrand ? 'Brand name' : 'Machine name'} <span class="required-dot">•</span></label>
                 <input name="name" maxlength="80" required placeholder="${isBrand ? 'Example: Technogym' : 'Example: Leg Press'}" value="${escapeAttr(modal.data?.name || '')}" />
               </div>
+              ${isMachine ? `
+                <div class="field-group">
+                  <label>Machine note</label>
+                  <textarea name="note" maxlength="180" placeholder="Optional note you want to see while logging sets">${safeText(modal.data?.note || '')}</textarea>
+                </div>
+              ` : ''}
             </div>
             <div class="modal-footer">
               <button type="button" class="secondary-btn" data-action="close-modal">Cancel</button>
@@ -1185,25 +1221,11 @@ function renderModal() {
                 <input name="time" type="time" value="${escapeAttr(toInputTime(entry.loggedAt))}" />
               </div>
             </div>
-            <div class="two-col">
-              <div class="field-group">
-                <label>RPE / effort</label>
-                <input name="rpe" maxlength="16" placeholder="Optional" value="${escapeAttr(entry.rpe || '')}" />
-              </div>
-              <div class="field-group">
-                <label>Rest time</label>
-                <input name="restTime" maxlength="32" placeholder="Optional" value="${escapeAttr(entry.restTime || '')}" />
-              </div>
-            </div>
-            <div class="field-group">
-              <label>Duration</label>
-              <input name="duration" maxlength="32" placeholder="Optional" value="${escapeAttr(entry.duration || '')}" />
-            </div>
             <div class="field-group">
               <label>Notes</label>
               <textarea name="notes" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>
             </div>
-            <div class="helper-text">Only weight and repetitions are required. Everything else is optional.</div>
+            <div class="helper-text">Only weight and repetitions are required. Notes remain optional.</div>
           </div>
           <div class="modal-footer">
             <button type="button" class="secondary-btn" data-action="close-modal">Cancel</button>
@@ -1320,7 +1342,8 @@ function wireForms() {
       if (state.modal.type === 'brand') {
         await saveBrand(name, state.modal.mode === 'edit' ? state.modal.data : null);
       } else {
-        await saveMachine(name, state.modal.mode === 'edit' ? state.modal.data : null);
+        const note = String(form.get('note') || '').trim();
+        await saveMachine(name, note, state.modal.mode === 'edit' ? state.modal.data : null);
       }
       closeModal();
     });
@@ -1339,9 +1362,9 @@ function wireForms() {
         reps,
         loggedAt: parseDateTime(String(form.get('date') || ''), String(form.get('time') || ''), state.modal.mode === 'edit' ? state.modal.data.loggedAt : nowIso()),
         notes: String(form.get('notes') || '').trim(),
-        rpe: String(form.get('rpe') || '').trim(),
-        restTime: String(form.get('restTime') || '').trim(),
-        duration: String(form.get('duration') || '').trim(),
+        rpe: '',
+        restTime: '',
+        duration: '',
       };
       await saveSet(payload, state.modal.mode === 'edit' ? state.modal.data : null);
       closeModal();
@@ -1375,12 +1398,12 @@ async function saveBrand(name, existing = null) {
   render();
 }
 
-async function saveMachine(name, existing = null) {
+async function saveMachine(name, note = '', existing = null) {
   const brandId = state.route.brandId;
   const brandMachines = state.machines.filter((machine) => machine.brandId === brandId);
   const record = existing
-    ? { ...existing, name, updatedAt: nowIso() }
-    : { id: uid('machine'), brandId, name, sortOrder: brandMachines.length, createdAt: nowIso(), updatedAt: nowIso() };
+    ? { ...existing, name, note, updatedAt: nowIso() }
+    : { id: uid('machine'), brandId, name, note, sortOrder: brandMachines.length, createdAt: nowIso(), updatedAt: nowIso() };
   await saveRecord('machines', record);
   await loadState();
   render();
@@ -1688,6 +1711,11 @@ function attachEventDelegation() {
     }
     if (action === 'toggle-machine-reorder') {
       state.reorder.machines = !state.reorder.machines;
+      render();
+      return;
+    }
+    if (action === 'toggle-recent-group') {
+      state.recentActivityExpanded[id] = !state.recentActivityExpanded[id];
       render();
       return;
     }

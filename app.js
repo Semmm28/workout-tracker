@@ -32,6 +32,8 @@ const app = document.getElementById('app');
 let dbPromise;
 let touchCleanup = null;
 let toastTimer = null;
+let serviceWorkerRegistration = null;
+let isRefreshingApp = false;
 
 const icon = {
   plus: '＋',
@@ -957,6 +959,15 @@ function renderSettingsScreen() {
               <button class="secondary-btn" data-action="trigger-import">Importeer data</button>
             </div>
           </section>
+          <section class="chart-card slide-up">
+            <div class="settings-stack">
+              <div class="settings-copy">
+                <h3>App vernieuwen</h3>
+                <p class="meta-text">Controleer op een nieuwe versie en herlaad de app zonder je lokaal opgeslagen data te verwijderen.</p>
+              </div>
+              <button class="secondary-btn" data-action="refresh-app">Refresh app</button>
+            </div>
+          </section>
         </div>
       </div>
     </section>
@@ -1654,6 +1665,7 @@ function attachEventDelegation() {
     if (action === 'nav-settings') return navigate({ screen: 'settings', brandId: null, machineId: null });
     if (action === 'export-data') return exportAllData();
     if (action === 'trigger-import') return document.getElementById('import-file-input')?.click();
+    if (action === 'refresh-app') return refreshApp();
     if (action === 'set-chart-series-mode' && CHART_SERIES_OPTIONS[id]) {
       state.preferences.chartSeriesMode = id;
       persistChartSeriesMode(id);
@@ -1744,10 +1756,67 @@ function attachEventDelegation() {
   });
 }
 
+function setupServiceWorkerAutoRefresh() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (isRefreshingApp) return;
+    isRefreshingApp = true;
+    window.location.reload();
+  });
+}
+
+async function refreshApp() {
+  if (isRefreshingApp) return;
+
+  if (!('serviceWorker' in navigator)) {
+    isRefreshingApp = true;
+    window.location.reload();
+    return;
+  }
+
+  try {
+    const registration = serviceWorkerRegistration || await navigator.serviceWorker.getRegistration();
+
+    if (!registration) {
+      isRefreshingApp = true;
+      window.location.reload();
+      return;
+    }
+
+    serviceWorkerRegistration = registration;
+    await registration.update();
+
+    if (registration.waiting) {
+      isRefreshingApp = true;
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      return;
+    }
+
+    const installingWorker = registration.installing;
+    if (installingWorker) {
+      showToast('Downloading update…');
+      installingWorker.addEventListener('statechange', () => {
+        if (installingWorker.state === 'installed' && registration.waiting) {
+          isRefreshingApp = true;
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
+      return;
+    }
+
+    isRefreshingApp = true;
+    window.location.reload();
+  } catch (error) {
+    console.warn('App refresh failed:', error);
+    showToast('Refresh failed');
+  }
+}
+
 async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
-      await navigator.serviceWorker.register('./sw.js');
+      serviceWorkerRegistration = await navigator.serviceWorker.register('./sw.js');
+      await serviceWorkerRegistration.update();
     } catch (error) {
       console.warn('Service worker registration failed:', error);
     }
@@ -1756,6 +1825,7 @@ async function registerServiceWorker() {
 
 async function init() {
   attachEventDelegation();
+  setupServiceWorkerAutoRefresh();
   window.addEventListener('popstate', () => {
     state.route = deriveRouteFromHash();
     render();

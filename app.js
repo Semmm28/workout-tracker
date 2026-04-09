@@ -741,7 +741,6 @@ function renderMachineRow(machine, index, total) {
       <div class="item-body">
         <div class="item-title">${safeText(machine.name)}</div>
         <div class="item-subtitle">${count} logged set${count === 1 ? '' : 's'}</div>
-        ${machine.note ? `<div class="item-note-preview">${safeText(previewText(machine.note, 64))}</div>` : ''}
       </div>
       ${tail}
     </div>
@@ -780,9 +779,9 @@ function renderMachineDetailScreen() {
       <div class="screen-scroll">
         <div class="detail-stack fade-in">
           ${machine.note ? `
-            <section class="machine-note-card slide-up">
-              <div class="machine-note-label">Machine note</div>
-              <div class="machine-note-text">${safeText(machine.note)}</div>
+            <section class="machine-note-inline slide-up">
+              <span class="machine-note-kicker">Note</span>
+              <p class="machine-note-text">${safeText(machine.note)}</p>
             </section>
           ` : ''}
           ${renderChartCard(machine.id)}
@@ -1077,24 +1076,21 @@ function renderRecentActivityGroup(group) {
 }
 
 function renderSetRow(entry, setNumber) {
-  const optional = [];
-  if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
+  const noteRow = entry.notes ? `<div class="set-note">${safeText(entry.notes)}</div>` : '';
 
   const content = `
-    <div class="list-item set-card">
+    <div class="list-item set-card compact">
       <div class="set-card-top">
         <div>
           <div class="set-name">Set ${setNumber}</div>
           <div class="item-subtitle">${safeText(formatTime(entry.loggedAt))}</div>
         </div>
-        <div class="muted">${safeText(new Date(entry.loggedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}</div>
       </div>
-      <div class="set-primary">
-        <div class="metric-chip"><strong>Weight</strong><span>${safeText(entry.weight)}</span></div>
-        <div class="metric-chip"><strong>Reps</strong><span>${safeText(entry.reps)}</span></div>
-        <div class="metric-chip"><strong>Volume</strong><span>${safeText(Number(entry.weight) * Number(entry.reps))}</span></div>
+      <div class="set-primary compact">
+        <div class="metric-chip compact"><strong>Weight</strong><span>${safeText(entry.weight)} kg</span></div>
+        <div class="metric-chip compact"><strong>Reps</strong><span>${safeText(entry.reps)}</span></div>
       </div>
-      ${optional.length ? `<div class="optional-row">${optional.join('')}</div>` : ''}
+      ${noteRow}
     </div>
   `;
 
@@ -1103,13 +1099,13 @@ function renderSetRow(entry, setNumber) {
 
 function renderRecentActivityRow(item, setNumber) {
   const { entry, machine, brand } = item;
-  const optional = [`<div class="tag-chip">Set ${setNumber}</div>`];
-  if (brand?.name) optional.push(`<div class="tag-chip">${safeText(brand.name)}</div>`);
-  if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
+  const optional = [`<div class="tag-chip compact">Set ${setNumber}</div>`];
+  if (brand?.name) optional.push(`<div class="tag-chip compact">${safeText(brand.name)}</div>`);
+  const noteRow = entry.notes ? `<div class="set-note">${safeText(entry.notes)}</div>` : '';
 
   return `
     <div
-      class="list-item set-card"
+      class="list-item set-card compact"
       role="button"
       tabindex="0"
       data-action="open-recent-machine"
@@ -1121,14 +1117,13 @@ function renderRecentActivityRow(item, setNumber) {
           <div class="set-name">${safeText(machine?.name || 'Unknown machine')}</div>
           <div class="item-subtitle">${safeText(formatTime(entry.loggedAt))}</div>
         </div>
-        <div class="muted">${safeText(new Date(entry.loggedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}</div>
+        <div class="optional-row compact">${optional.join('')}</div>
       </div>
-      <div class="set-primary">
-        <div class="metric-chip"><strong>Weight</strong><span>${safeText(entry.weight)}</span></div>
-        <div class="metric-chip"><strong>Reps</strong><span>${safeText(entry.reps)}</span></div>
-        <div class="metric-chip"><strong>Volume</strong><span>${safeText(Number(entry.weight) * Number(entry.reps))}</span></div>
+      <div class="set-primary compact">
+        <div class="metric-chip compact"><strong>Weight</strong><span>${safeText(entry.weight)} kg</span></div>
+        <div class="metric-chip compact"><strong>Reps</strong><span>${safeText(entry.reps)}</span></div>
       </div>
-      <div class="optional-row">${optional.join('')}</div>
+      ${noteRow}
     </div>
   `;
 }

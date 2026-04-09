@@ -493,26 +493,29 @@ textarea {
 }
 
 
-.machine-note-card {
-  padding: 14px 16px;
-  display: grid;
-  gap: 6px;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(157, 184, 255, 0.18);
-  background: linear-gradient(180deg, rgba(157, 184, 255, 0.12), rgba(255, 255, 255, 0.04));
-  box-shadow: var(--shadow);
+.machine-note-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
 }
 
-.machine-note-label {
-  font-size: 0.78rem;
+.machine-note-kicker {
+  flex-shrink: 0;
+  font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 
 .machine-note-text {
-  font-size: 0.95rem;
-  line-height: 1.45;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 
 .chart-series-picker {
@@ -668,28 +671,39 @@ textarea {
 
 .set-stack {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .set-card {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+}
+
+.list-item.set-card {
+  padding: 12px 14px;
 }
 
 .set-card-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .set-name {
   font-weight: 650;
+  line-height: 1.2;
 }
 
 .set-primary {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+}
+
+.set-primary.compact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -701,6 +715,11 @@ textarea {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.metric-chip.compact {
+  padding: 8px 10px;
+  border-radius: 14px;
+}
+
 .metric-chip strong {
   display: block;
   font-size: 0.8rem;
@@ -709,9 +728,19 @@ textarea {
   margin-bottom: 4px;
 }
 
+.metric-chip.compact strong {
+  font-size: 0.72rem;
+  margin-bottom: 2px;
+}
+
 .metric-chip span {
   font-size: 1rem;
   font-weight: 650;
+}
+
+.metric-chip.compact span {
+  font-size: 0.95rem;
+  line-height: 1.15;
 }
 
 .optional-row {
@@ -720,9 +749,27 @@ textarea {
   gap: 8px;
 }
 
+.optional-row.compact {
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .tag-chip {
   color: var(--text-secondary);
   font-size: 0.84rem;
+}
+
+.tag-chip.compact {
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+}
+
+.set-note {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  padding: 2px 2px 0;
 }
 
 .modal-backdrop,

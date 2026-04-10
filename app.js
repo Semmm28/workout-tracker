@@ -741,6 +741,7 @@ function renderMachineRow(machine, index, total) {
       <div class="item-body">
         <div class="item-title">${safeText(machine.name)}</div>
         <div class="item-subtitle">${count} logged set${count === 1 ? '' : 's'}</div>
+        ${machine.note ? `<div class="item-note-preview">${safeText(previewText(machine.note, 64))}</div>` : ''}
       </div>
       ${tail}
     </div>
@@ -779,9 +780,9 @@ function renderMachineDetailScreen() {
       <div class="screen-scroll">
         <div class="detail-stack fade-in">
           ${machine.note ? `
-            <section class="machine-note-inline slide-up">
-              <span class="machine-note-kicker">Note</span>
-              <p class="machine-note-text">${safeText(machine.note)}</p>
+            <section class="machine-note-card slide-up">
+              <div class="machine-note-label">Machine note</div>
+              <div class="machine-note-text">${safeText(machine.note)}</div>
             </section>
           ` : ''}
           ${renderChartCard(machine.id)}
@@ -1076,21 +1077,33 @@ function renderRecentActivityGroup(group) {
 }
 
 function renderSetRow(entry, setNumber) {
-  const noteRow = entry.notes ? `<div class="set-note">${safeText(entry.notes)}</div>` : '';
+  const optional = [];
+  if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
+  const e1rm = formatWeight(estimateE1rm(Number(entry.weight), Number(entry.reps)));
 
   const content = `
-    <div class="list-item set-card compact">
-      <div class="set-card-top">
+    <div class="list-item set-card compact-set-card">
+      <div class="set-card-top compact">
         <div>
           <div class="set-name">Set ${setNumber}</div>
           <div class="item-subtitle">${safeText(formatTime(entry.loggedAt))}</div>
         </div>
+        <div class="set-summary" aria-label="Set summary">
+          <div class="set-summary-item set-summary-box">
+            <span class="set-summary-label">Weight</span>
+            <strong>${safeText(entry.weight)} kg</strong>
+          </div>
+          <div class="set-summary-item set-summary-box">
+            <span class="set-summary-label">Reps</span>
+            <strong>${safeText(entry.reps)}</strong>
+          </div>
+          <div class="set-summary-item set-summary-box">
+            <span class="set-summary-label">e1RM</span>
+            <strong>${safeText(e1rm)} kg</strong>
+          </div>
+        </div>
       </div>
-      <div class="set-primary compact">
-        <div class="metric-chip compact"><strong>Weight</strong><span>${safeText(entry.weight)} kg</span></div>
-        <div class="metric-chip compact"><strong>Reps</strong><span>${safeText(entry.reps)}</span></div>
-      </div>
-      ${noteRow}
+      ${optional.length ? `<div class="optional-row">${optional.join('')}</div>` : ''}
     </div>
   `;
 
@@ -1099,31 +1112,41 @@ function renderSetRow(entry, setNumber) {
 
 function renderRecentActivityRow(item, setNumber) {
   const { entry, machine, brand } = item;
-  const optional = [`<div class="tag-chip compact">Set ${setNumber}</div>`];
-  if (brand?.name) optional.push(`<div class="tag-chip compact">${safeText(brand.name)}</div>`);
-  const noteRow = entry.notes ? `<div class="set-note">${safeText(entry.notes)}</div>` : '';
+  const optional = [`<div class="tag-chip">Set ${setNumber}</div>`];
+  if (brand?.name) optional.push(`<div class="tag-chip">${safeText(brand.name)}</div>`);
+  if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
+  const e1rm = formatWeight(estimateE1rm(Number(entry.weight), Number(entry.reps)));
 
   return `
     <div
-      class="list-item set-card compact"
+      class="list-item set-card compact-set-card"
       role="button"
       tabindex="0"
       data-action="open-recent-machine"
       data-id="${entry.machineId}"
       data-brand-id="${machine?.brandId || ''}"
     >
-      <div class="set-card-top">
+      <div class="set-card-top compact">
         <div>
           <div class="set-name">${safeText(machine?.name || 'Unknown machine')}</div>
           <div class="item-subtitle">${safeText(formatTime(entry.loggedAt))}</div>
         </div>
-        <div class="optional-row compact">${optional.join('')}</div>
+        <div class="set-summary" aria-label="Set summary">
+          <div class="set-summary-item set-summary-box">
+            <span class="set-summary-label">Weight</span>
+            <strong>${safeText(entry.weight)} kg</strong>
+          </div>
+          <div class="set-summary-item set-summary-box">
+            <span class="set-summary-label">Reps</span>
+            <strong>${safeText(entry.reps)}</strong>
+          </div>
+          <div class="set-summary-item set-summary-box">
+            <span class="set-summary-label">e1RM</span>
+            <strong>${safeText(e1rm)} kg</strong>
+          </div>
+        </div>
       </div>
-      <div class="set-primary compact">
-        <div class="metric-chip compact"><strong>Weight</strong><span>${safeText(entry.weight)} kg</span></div>
-        <div class="metric-chip compact"><strong>Reps</strong><span>${safeText(entry.reps)}</span></div>
-      </div>
-      ${noteRow}
+      <div class="optional-row">${optional.join('')}</div>
     </div>
   `;
 }
@@ -1791,44 +1814,27 @@ function setupServiceWorkerAutoRefresh() {
 async function refreshApp() {
   if (isRefreshingApp) return;
 
-  if (!('serviceWorker' in navigator)) {
-    isRefreshingApp = true;
-    window.location.reload();
-    return;
-  }
-
   try {
-    const registration = serviceWorkerRegistration || await navigator.serviceWorker.getRegistration();
+    showToast('Refreshing app…');
 
-    if (!registration) {
-      isRefreshingApp = true;
-      window.location.reload();
-      return;
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+      serviceWorkerRegistration = null;
     }
 
-    serviceWorkerRegistration = registration;
-    await registration.update();
-
-    if (registration.waiting) {
-      isRefreshingApp = true;
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      return;
+    if ('caches' in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map((key) => caches.delete(key)));
     }
 
-    const installingWorker = registration.installing;
-    if (installingWorker) {
-      showToast('Downloading update…');
-      installingWorker.addEventListener('statechange', () => {
-        if (installingWorker.state === 'installed' && registration.waiting) {
-          isRefreshingApp = true;
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-      });
-      return;
-    }
+    const url = new URL(window.location.href);
+    const hash = window.location.hash;
+    url.searchParams.set('refresh', `${Date.now()}`);
+    url.hash = hash;
 
     isRefreshingApp = true;
-    window.location.reload();
+    window.location.replace(url.toString());
   } catch (error) {
     console.warn('App refresh failed:', error);
     showToast('Refresh failed');

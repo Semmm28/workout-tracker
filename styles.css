@@ -733,8 +733,8 @@ textarea {
 }
 
 .set-summary-item {
-  min-width: 96px;
-  padding: 10px 12px;
+  min-width: 88px;
+  padding: 9px 10px;
   border-radius: 16px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
@@ -749,15 +749,17 @@ textarea {
 
 .set-summary-label {
   display: block;
-  margin-bottom: 4px;
-  font-size: 0.78rem;
+  margin-bottom: 3px;
+  font-size: 0.72rem;
   color: var(--text-secondary);
   font-weight: 600;
 }
 
 .set-summary-item strong {
   display: block;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  white-space: nowrap;
   line-height: 1.05;
   font-weight: 700;
 }
@@ -1057,11 +1059,15 @@ label {
   }
 
   .set-summary-item {
-    min-width: 72px;
-    padding: 7px 9px;
+    min-width: 68px;
+    padding: 7px 8px;
+  }
+
+  .set-summary-label {
+    font-size: 0.68rem;
   }
 
   .set-summary-item strong {
-    font-size: 1rem;
+    font-size: 0.82rem;
   }
 }

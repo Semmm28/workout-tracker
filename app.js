@@ -94,9 +94,10 @@ function formatDate(iso) {
 
 function formatTime(iso) {
   const date = new Date(iso);
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
+  return date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 }
 

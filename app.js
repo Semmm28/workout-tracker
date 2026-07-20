@@ -1,289 +1,51 @@
-const DB_NAME = 'workout-tracker-db';
-const DB_VERSION = 2;
-const ACTION_WIDTH = 176;
-const CHART_SERIES_MODE_KEY = 'workout-tracker.chartSeriesMode';
-const CHART_SERIES_OPTIONS = {
-  e1rmMax: 'Heaviest e1RM per day',
-  volumeMax: 'Highest volume per day',
-  set1: '1st set e1RM per day',
-  set2: '2nd set e1RM per day',
-  set3: '3rd set e1RM per day',
-};
-
-const state = {
-  ready: false,
-  brands: [],
-  machines: [],
-  sets: [],
-  bodyweights: [],
-  route: { screen: 'brands', brandId: null, machineId: null },
-  search: { brands: '', machines: '' },
-  reorder: { brands: false, machines: false },
-  recentActivityExpanded: {},
-  modal: null,
-  confirmSheet: null,
-  toast: null,
-  menuOpen: false,
-  preferences: {
-    chartSeriesMode: 'e1rmMax',
-  },
-};
+import { ACTION_WIDTH, CHART_SERIES_OPTIONS, icon } from './js/constants.js';
+import { bulkPut, deleteById, openDb, saveRecord, txMulti } from './js/database.js';
+import { loadState } from './js/data.js';
+import { deriveRouteFromHash, writeRoute } from './js/router.js';
+import {
+  bodyweightSeries,
+  brandForMachine,
+  chartSeries,
+  chartSeriesModeMetric,
+  currentBrand,
+  currentMachine,
+  getMachineSets,
+  getVisibleBrands,
+  getVisibleMachines,
+  groupedRecentActivity,
+  groupedSets,
+  machineCountByBrand,
+  machineForSet,
+  setCountByMachine,
+} from './js/selectors.js';
+import { state } from './js/state.js';
+import {
+  buildInitials,
+  clone,
+  debounce,
+  escapeAttr,
+  estimateE1rm,
+  formatDate,
+  formatDateKey,
+  formatTime,
+  formatWeight,
+  nowIso,
+  parseBodyweightDate,
+  parseDateTime,
+  persistChartSeriesMode,
+  previewText,
+  safeText,
+  toInputDate,
+  toInputTime,
+  todayInputValue,
+  uid,
+} from './js/utils.js';
 
 const app = document.getElementById('app');
-let dbPromise;
 let touchCleanup = null;
 let toastTimer = null;
 let serviceWorkerRegistration = null;
 let isRefreshingApp = false;
-
-const icon = {
-  plus: '＋',
-  back: '‹',
-  menu: '☰',
-  search: '⌕',
-  close: '✕',
-  chevron: '›',
-  up: '↑',
-  down: '↓',
-};
-
-function uid(prefix = 'id') {
-  return `${prefix}_${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(16).slice(2)}`}`;
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function parseDateTime(inputDate, inputTime, fallbackIso = nowIso()) {
-  if (!inputDate) return fallbackIso;
-  const time = inputTime || '12:00';
-  const local = new Date(`${inputDate}T${time}`);
-  if (Number.isNaN(local.getTime())) return fallbackIso;
-  return local.toISOString();
-}
-
-function toInputDate(iso) {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const y = date.getFullYear();
-  const m = `${date.getMonth() + 1}`.padStart(2, '0');
-  const d = `${date.getDate()}`.padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function toInputTime(iso) {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const h = `${date.getHours()}`.padStart(2, '0');
-  const m = `${date.getMinutes()}`.padStart(2, '0');
-  return `${h}:${m}`;
-}
-
-function formatDate(iso) {
-  const date = new Date(iso);
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function formatTime(iso) {
-  const date = new Date(iso);
-  return date.toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-}
-
-function formatDateKey(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = `${d.getMonth() + 1}`.padStart(2, '0');
-  const day = `${d.getDate()}`.padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function todayInputValue() {
-  return toInputDate(nowIso());
-}
-
-function parseBodyweightDate(inputDate, fallbackIso = nowIso()) {
-  const value = String(inputDate || '').trim() || todayInputValue();
-  const local = new Date(`${value}T12:00`);
-  if (Number.isNaN(local.getTime())) return fallbackIso;
-  return local.toISOString();
-}
-
-function formatWeight(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return '';
-  return Number.isInteger(number) ? `${number}` : number.toFixed(1);
-}
-
-
-function buildInitials(name) {
-  const value = String(name || '').trim();
-  if (!value) return '--';
-
-  const words = value.split(/\s+/).filter(Boolean);
-  if (words.length === 1) {
-    const cleaned = words[0].replace(/[^\p{L}\p{N}]/gu, '');
-    return (cleaned || words[0]).slice(0, 2).toUpperCase();
-  }
-
-  return words.map((word) => word[0]).join('').toUpperCase();
-}
-
-function previewText(value, maxLength = 72) {
-  const textValue = String(value || '').trim();
-  if (!textValue) return '';
-  if (textValue.length <= maxLength) return textValue;
-  return `${textValue.slice(0, maxLength).trimEnd()}…`;
-}
-
-function debounce(fn, ms = 120) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
-
-function readChartSeriesMode() {
-  try {
-    const value = localStorage.getItem(CHART_SERIES_MODE_KEY);
-    if (value === 'first') return 'set1';
-    return CHART_SERIES_OPTIONS[value] ? value : 'e1rmMax';
-  } catch (error) {
-    return 'e1rmMax';
-  }
-}
-
-function persistChartSeriesMode(mode) {
-  try {
-    localStorage.setItem(CHART_SERIES_MODE_KEY, mode);
-  } catch (error) {
-    console.warn('Could not persist chart series mode:', error);
-  }
-}
-
-function estimateE1rm(weight, reps) {
-  return weight * (1 + reps / 30);
-}
-
-function safeText(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (m) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  })[m]);
-}
-
-function clone(obj) {
-  return structuredClone ? structuredClone(obj) : JSON.parse(JSON.stringify(obj));
-}
-
-function openDb() {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains('brands')) {
-        const brands = db.createObjectStore('brands', { keyPath: 'id' });
-        brands.createIndex('sortOrder', 'sortOrder');
-      }
-      if (!db.objectStoreNames.contains('machines')) {
-        const machines = db.createObjectStore('machines', { keyPath: 'id' });
-        machines.createIndex('brandId', 'brandId');
-        machines.createIndex('brandId_sortOrder', ['brandId', 'sortOrder']);
-      }
-      if (!db.objectStoreNames.contains('sets')) {
-        const sets = db.createObjectStore('sets', { keyPath: 'id' });
-        sets.createIndex('machineId', 'machineId');
-        sets.createIndex('machineId_loggedAt', ['machineId', 'loggedAt']);
-      }
-      if (!db.objectStoreNames.contains('bodyweights')) {
-        const bodyweights = db.createObjectStore('bodyweights', { keyPath: 'id' });
-        bodyweights.createIndex('loggedAt', 'loggedAt');
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-  return dbPromise;
-}
-
-async function tx(storeName, mode, executor) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeName, mode);
-    const store = transaction.objectStore(storeName);
-    const result = executor(store, transaction);
-    transaction.oncomplete = () => resolve(result);
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
-}
-
-async function txMulti(storeNames, mode, executor) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeNames, mode);
-    const stores = Object.fromEntries(storeNames.map((name) => [name, transaction.objectStore(name)]));
-    const result = executor(stores, transaction);
-    transaction.oncomplete = () => resolve(result);
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
-}
-
-async function getAll(storeName) {
-  return tx(storeName, 'readonly', (store) => {
-    const request = store.getAll();
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    });
-  });
-}
-
-async function saveRecord(storeName, record) {
-  return tx(storeName, 'readwrite', (store) => {
-    const request = store.put(record);
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(record);
-      request.onerror = () => reject(request.error);
-    });
-  });
-}
-
-async function bulkPut(storeName, records) {
-  return tx(storeName, 'readwrite', (store) => Promise.all(records.map((record) => new Promise((resolve, reject) => {
-    const request = store.put(record);
-    request.onsuccess = () => resolve(record);
-    request.onerror = () => reject(request.error);
-  }))));
-}
-
-async function deleteById(storeName, id) {
-  return tx(storeName, 'readwrite', (store) => {
-    const request = store.delete(id);
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(true);
-      request.onerror = () => reject(request.error);
-    });
-  });
-}
 
 async function getMachineCascade(brandId) {
   const machines = state.machines.filter((m) => m.brandId === brandId);
@@ -332,230 +94,12 @@ async function restoreSnapshot(snapshot) {
   await loadState();
 }
 
-async function loadState() {
-  const [brands, machines, sets, bodyweights] = await Promise.all([
-    getAll('brands'),
-    getAll('machines'),
-    getAll('sets'),
-    getAll('bodyweights'),
-  ]);
-  state.brands = brands.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
-  state.machines = machines.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
-  state.sets = sets.sort((a, b) => new Date(b.loggedAt) - new Date(a.loggedAt));
-  state.bodyweights = bodyweights.sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt));
-  state.preferences.chartSeriesMode = readChartSeriesMode();
-}
-
-function pushHistory(route) {
-  const url = new URL(location.href);
-  if (route.screen === 'brands') url.hash = '#/brands';
-  if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
-  if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
-  if (route.screen === 'recentActivity') url.hash = '#/recent-activity';
-  if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
-  if (route.screen === 'settings') url.hash = '#/settings';
-  history.pushState(route, '', url);
-}
-
-function deriveRouteFromHash() {
-  const hash = location.hash.replace(/^#\/?/, '');
-  if (!hash || hash === 'brands') return { screen: 'brands', brandId: null, machineId: null };
-  if (hash === 'recent-activity') return { screen: 'recentActivity', brandId: null, machineId: null };
-  if (hash === 'bodyweight') return { screen: 'bodyweight', brandId: null, machineId: null };
-  if (hash === 'settings') return { screen: 'settings', brandId: null, machineId: null };
-  const parts = hash.split('/');
-  if (parts[0] === 'brands' && parts[1] && !parts[2]) return { screen: 'machines', brandId: parts[1], machineId: null };
-  if (parts[0] === 'brands' && parts[1] && parts[2] === 'machines' && parts[3]) {
-    return { screen: 'machineDetail', brandId: parts[1], machineId: parts[3] };
-  }
-  return { screen: 'brands', brandId: null, machineId: null };
-}
-
 function navigate(route, replace = false) {
   state.route = route;
   state.menuOpen = false;
-  if (replace) {
-    const url = new URL(location.href);
-    if (route.screen === 'brands') url.hash = '#/brands';
-    if (route.screen === 'machines') url.hash = `#/brands/${route.brandId}`;
-    if (route.screen === 'machineDetail') url.hash = `#/brands/${route.brandId}/machines/${route.machineId}`;
-    if (route.screen === 'recentActivity') url.hash = '#/recent-activity';
-    if (route.screen === 'bodyweight') url.hash = '#/bodyweight';
-    if (route.screen === 'settings') url.hash = '#/settings';
-    history.replaceState(route, '', url);
-  } else {
-    pushHistory(route);
-  }
+  writeRoute(route, replace);
   closeSwipeRows();
   render();
-}
-
-function currentBrand() {
-  return state.brands.find((brand) => brand.id === state.route.brandId) || null;
-}
-
-function currentMachine() {
-  return state.machines.find((machine) => machine.id === state.route.machineId) || null;
-}
-
-function machineCountByBrand(brandId) {
-  return state.machines.filter((m) => m.brandId === brandId).length;
-}
-
-function setCountByMachine(machineId) {
-  return state.sets.filter((s) => s.machineId === machineId).length;
-}
-
-function getVisibleBrands() {
-  const query = state.search.brands.trim().toLowerCase();
-  return state.brands.filter((brand) => brand.name.toLowerCase().includes(query));
-}
-
-function getVisibleMachines(brandId) {
-  const query = state.search.machines.trim().toLowerCase();
-  return state.machines
-    .filter((machine) => machine.brandId === brandId)
-    .filter((machine) => machine.name.toLowerCase().includes(query));
-}
-
-function getMachineSets(machineId) {
-  return state.sets.filter((entry) => entry.machineId === machineId);
-}
-
-function machineForSet(entry) {
-  return state.machines.find((machine) => machine.id === entry.machineId) || null;
-}
-
-function brandForMachine(machine) {
-  if (!machine) return null;
-  return state.brands.find((brand) => brand.id === machine.brandId) || null;
-}
-
-function groupedSets(machineId) {
-  const machineSets = getMachineSets(machineId);
-  const byDate = new Map();
-  machineSets.forEach((entry) => {
-    const key = formatDateKey(entry.loggedAt);
-    if (!byDate.has(key)) byDate.set(key, []);
-    byDate.get(key).push(entry);
-  });
-  return Array.from(byDate.entries())
-    .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-    .map(([, items]) => ({
-      displayDate: formatDate(items[0].loggedAt),
-      items: items.sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt)),
-    }));
-}
-
-function groupedRecentActivity() {
-  const byDate = new Map();
-
-  state.sets.forEach((entry) => {
-    const key = formatDateKey(entry.loggedAt);
-    if (!key) return;
-
-    const machine = machineForSet(entry);
-    const brand = brandForMachine(machine);
-    if (!byDate.has(key)) byDate.set(key, []);
-    byDate.get(key).push({ entry, machine, brand });
-  });
-
-  return Array.from(byDate.entries())
-    .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-    .map(([key, items]) => ({
-      key,
-      displayDate: formatDate(items[0].entry.loggedAt),
-      items: items.sort((a, b) => new Date(a.entry.loggedAt) - new Date(b.entry.loggedAt)),
-      expanded: Boolean(state.recentActivityExpanded[key]),
-    }));
-}
-
-function chartSeriesModeMetric(mode) {
-  return mode === 'volumeMax' ? 'volume' : 'e1rm';
-}
-
-function chartSeriesModeSetIndex(mode) {
-  const match = /^set(\d+)$/.exec(mode);
-  if (!match) return null;
-  return Number(match[1]) - 1;
-}
-
-function chartSeries(machineId, metric) {
-  const mode = state.preferences.chartSeriesMode;
-  if (metric !== chartSeriesModeMetric(mode)) return [];
-
-  const dayGroups = groupedSets(machineId)
-    .map((group) => {
-      const dayKey = formatDateKey(group.items[0]?.loggedAt);
-      const items = group.items
-        .map((entry) => {
-          const weight = Number(entry.weight);
-          const reps = Number(entry.reps);
-          if (!Number.isFinite(weight) || !Number.isFinite(reps)) return null;
-          return {
-            entry,
-            weight,
-            reps,
-            dayKey,
-            e1rm: estimateE1rm(weight, reps),
-            volume: weight * reps,
-            loggedAt: new Date(entry.loggedAt).getTime(),
-          };
-        })
-        .filter(Boolean);
-
-      if (!dayKey || !items.length) return null;
-      return { dayKey, items };
-    })
-    .filter(Boolean)
-    .sort((a, b) => new Date(a.dayKey) - new Date(b.dayKey));
-
-  return dayGroups
-    .map((group, index) => {
-      const setIndex = chartSeriesModeSetIndex(mode);
-      let selected = null;
-
-      if (mode === 'e1rmMax') {
-        selected = group.items.reduce((best, item) => {
-          if (!best) return item;
-          if (item.e1rm > best.e1rm) return item;
-          if (item.e1rm === best.e1rm && item.loggedAt > best.loggedAt) return item;
-          return best;
-        }, null);
-      } else if (mode === 'volumeMax') {
-        selected = group.items.reduce((best, item) => {
-          if (!best) return item;
-          if (item.volume > best.volume) return item;
-          if (item.volume === best.volume && item.loggedAt > best.loggedAt) return item;
-          return best;
-        }, null);
-      } else if (setIndex !== null) {
-        selected = group.items[setIndex] || null;
-      }
-
-      if (!selected) return null;
-      return {
-        id: selected.entry.id,
-        xLabel: new Date(group.dayKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: metric === 'volume' ? selected.volume : selected.e1rm,
-        order: index + 1,
-      };
-    })
-    .filter(Boolean);
-}
-
-function bodyweightSeries() {
-  return state.bodyweights
-    .filter((entry) => {
-      const weight = Number(entry.weight);
-      return Boolean(formatDateKey(entry.loggedAt)) && Number.isFinite(weight);
-    })
-    .map((entry, index) => ({
-      id: entry.id,
-      xLabel: new Date(entry.loggedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      value: Number(entry.weight),
-      order: index + 1,
-    }));
 }
 
 function buildExportPayload() {
@@ -586,10 +130,6 @@ function sanitizeImportData(data) {
     sets: Array.isArray(payload.sets) ? payload.sets.filter((record) => isValidImportRecord(record, 'sets')) : [],
     bodyweights: Array.isArray(payload.bodyweights) ? payload.bodyweights.filter((record) => isValidImportRecord(record, 'bodyweights')) : [],
   };
-}
-
-function escapeAttr(value) {
-  return safeText(value).replace(/"/g, '&quot;');
 }
 
 function renderHeader({ title, subtitle = '', showBack = false, onBack = '', extraButtons = '' }) {

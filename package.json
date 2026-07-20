@@ -1,0 +1,9 @@
+{
+  "name": "workout-log-pwa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --test tests/module-graph.test.js",
+    "test": "node --test"
+  }
+}

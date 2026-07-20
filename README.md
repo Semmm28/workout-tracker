@@ -19,10 +19,35 @@ A browser-based, offline-first workout tracker optimized for iPhone Safari and H
 
 - `index.html` – app shell and meta tags
 - `styles.css` – dark iPhone-style UI
-- `app.js` – SPA logic, rendering, IndexedDB, navigation, gestures
+- `app.js` – small application bootstrap and coordination layer
+- `js/constants.js` – shared configuration and interface symbols
+- `js/state.js` – central in-memory application state
+- `js/database.js` – low-level IndexedDB access and transactions
+- `js/data.js` – loading persisted records into application state
+- `js/repository.js` – workout record create, update, delete, restore, and reorder operations
+- `js/data-transfer.js` – JSON import, validation, and export
+- `js/router.js` – hash routing and browser history
+- `js/selectors.js` – derived workout, chart, and activity data
+- `js/controller.js` – forms, actions, and event delegation
+- `js/render.js` – selects and composes the active screen
+- `js/screens/` – feature-specific screen markup
+- `js/ui/` – shared interface components and swipe gestures
+- `js/pwa.js` – service worker registration and app refresh behavior
 - `sw.js` – service worker for offline shell caching
 - `manifest.json` – PWA metadata
 - `assets/` – icons for install and Home Screen
+- `tests/` – dependency-free unit, routing, rendering, and module graph tests
+
+## Development checks
+
+The project uses Node's built-in test runner and does not require third-party packages.
+
+```bash
+npm test
+```
+
+The test suite covers calculation utilities, routes, import validation, chart selectors,
+all screen renderers, missing module files, and circular module dependencies.
 
 ## How to run locally on your computer
 

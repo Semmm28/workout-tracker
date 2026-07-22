@@ -22,6 +22,8 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  --page-bottom: #090a0d;
+  --nav-bottom-gap: max(10px, calc(var(--safe-bottom) - 12px));
   font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
 }
 
@@ -40,6 +42,7 @@ body {
   background:
     radial-gradient(circle at top, rgba(116, 137, 255, 0.14), transparent 28%),
     linear-gradient(180deg, #0d0e13 0%, #090a0d 100%);
+  background-color: var(--page-bottom);
   color: var(--text);
 }
 
@@ -97,6 +100,7 @@ textarea {
   background:
     radial-gradient(circle at top, rgba(116, 137, 255, 0.14), transparent 28%),
     linear-gradient(180deg, #0d0e13 0%, #090a0d 100%);
+  background-color: var(--page-bottom);
 }
 
 .loading-screen {
@@ -148,7 +152,7 @@ textarea {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   gap: 0;
-  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(92px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) 0 calc(16px + var(--safe-left));
   overflow: hidden;
   overflow-x: clip;
 }
@@ -186,7 +190,8 @@ textarea {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 4px 0 12px;
+  padding: 4px 0 calc(103px + var(--nav-bottom-gap));
+  scroll-padding-bottom: calc(103px + var(--nav-bottom-gap));
   scrollbar-width: none;
 }
 
@@ -961,16 +966,18 @@ label {
   z-index: 20;
   left: calc(16px + var(--safe-left));
   right: calc(16px + var(--safe-right));
-  bottom: 0;
+  bottom: var(--nav-bottom-gap);
   width: auto;
   max-width: none;
   margin: 0;
-  padding-bottom: max(6px, var(--safe-bottom));
+  padding-bottom: 0;
   display: flex;
   justify-content: center;
+  pointer-events: none;
 }
 
 .bottom-nav {
+  position: relative;
   width: 100%;
   max-width: 760px;
   min-height: 68px;
@@ -980,10 +987,11 @@ label {
   padding: 6px 3px;
   border: 1px solid var(--line-strong);
   border-radius: 24px;
-  background: rgba(19, 20, 26, 0.94);
+  background: rgba(19, 20, 26, 0.84);
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: saturate(150%) blur(22px);
+  -webkit-backdrop-filter: saturate(150%) blur(22px);
+  pointer-events: auto;
 }
 
 .tab-button {

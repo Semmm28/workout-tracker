@@ -20,7 +20,7 @@ test('app shell fills the standalone viewport without page scrolling', () => {
 
 test('workout content uses the same available width as the bottom navigation', () => {
   assert.match(rule('.phone-frame'), /width:\s*100%/);
-  assert.match(rule('.screen-scroll'), /padding:\s*4px\s+0\s+calc\(103px\s*\+\s*var\(--nav-bottom-gap\)\)/);
+  assert.match(rule('.screen-scroll'), /padding:\s*4px\s+0\s+var\(--nav-scroll-clearance\)/);
 });
 
 test('content scrolls behind the pinned foreground navigation', () => {
@@ -38,7 +38,14 @@ test('content scrolls behind the pinned foreground navigation', () => {
   assert.match(bar, /pointer-events:\s*auto/);
   assert.match(bar, /backdrop-filter:\s*saturate\(150%\)\s+blur\(22px\)/);
   assert.match(scroll, /overflow-y:\s*auto/);
-  assert.match(scroll, /scroll-padding-bottom:\s*calc\(103px\s*\+\s*var\(--nav-bottom-gap\)\)/);
+  assert.match(scroll, /scroll-padding-bottom:\s*var\(--nav-scroll-clearance\)/);
+});
+
+test('foreground navigation keeps a compact safe-area-aware bottom gap', () => {
+  const root = rule(':root');
+
+  assert.match(root, /--nav-bottom-gap:\s*clamp\(8px,\s*calc\(var\(--safe-bottom\)\s*-\s*24px\),\s*14px\)/);
+  assert.match(root, /--nav-scroll-clearance:\s*calc\(103px\s*\+\s*var\(--nav-bottom-gap\)\)/);
 });
 
 test('overlays remain above the foreground navigation', () => {

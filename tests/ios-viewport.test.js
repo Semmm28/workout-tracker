@@ -11,6 +11,15 @@ test('iOS standalone mode can paint into the safe areas', () => {
   assert.match(index, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
 });
 
+test('standalone layout uses the WebKit full-height fallback', async () => {
+  const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+  const standalone = css.match(/@media all and \(display-mode: standalone\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+
+  assert.match(standalone, /html,\s*body,\s*\.app-shell\s*\{/);
+  assert.match(standalone, /min-height:\s*100vh/);
+  assert.doesNotMatch(standalone, /100(?:d|s|l)vh|-webkit-fill-available/);
+});
+
 test('browser and launch surfaces match the page bottom color', () => {
   assert.match(index, /name="theme-color" content="#090a0d"/);
   assert.equal(manifest.background_color, '#090a0d');

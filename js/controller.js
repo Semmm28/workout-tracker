@@ -43,13 +43,22 @@ export function createController({ render, navigate, refreshApp }) {
     render();
   }
 
-  function closeModal() {
-    state.modal = null;
+  function openQuickLog() {
+    if (state.route.screen === 'machineDetail' && state.route.machineId) {
+      openSetModal('create');
+      return;
+    }
+    if (!state.machines.length) {
+      navigate({ screen: 'brands', brandId: null, machineId: null });
+      showToast('Voeg eerst een apparaat toe om een set te loggen.');
+      return;
+    }
+    state.modal = { type: 'set-picker' };
     render();
   }
 
-  function toggleMenu(force) {
-    state.menuOpen = typeof force === 'boolean' ? force : !state.menuOpen;
+  function closeModal() {
+    state.modal = null;
     render();
   }
 
@@ -244,16 +253,22 @@ export function createController({ render, navigate, refreshApp }) {
       if (action === 'backdrop-close' && event.target === target) return closeModal();
       if (action === 'close-modal') return closeModal();
       if (action === 'close-sheet') return closeConfirmSheet();
-      if (action === 'close-menu') return toggleMenu(false);
       if (action === 'undo-toast' && state.toast?.undo) return state.toast.undo();
 
-      if (action === 'toggle-menu') return toggleMenu();
       if (action === 'go-brands') return navigate({ screen: 'brands', brandId: null, machineId: null });
       if (action === 'go-machines') return navigate({ screen: 'machines', brandId: state.route.brandId, machineId: null });
       if (action === 'nav-workouts') return navigate({ screen: 'brands', brandId: null, machineId: null });
       if (action === 'nav-recent-activity') return navigate({ screen: 'recentActivity', brandId: null, machineId: null });
       if (action === 'nav-bodyweight') return navigate({ screen: 'bodyweight', brandId: null, machineId: null });
       if (action === 'nav-settings') return navigate({ screen: 'settings', brandId: null, machineId: null });
+      if (action === 'quick-log-set') return openQuickLog();
+      if (action === 'quick-log-machine') {
+        const machine = findMachine(id);
+        if (!machine) return;
+        navigate({ screen: 'machineDetail', brandId: machine.brandId, machineId: machine.id });
+        openSetModal('create');
+        return;
+      }
       if (action === 'export-data') return exportAllData();
       if (action === 'trigger-import') return document.getElementById('import-file-input')?.click();
       if (action === 'refresh-app') return refreshApp();

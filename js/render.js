@@ -8,8 +8,8 @@ import {
 } from './screens/workouts.js';
 import { state } from './state.js';
 import {
+  renderBottomNavigation,
   renderConfirmSheet,
-  renderMenu,
   renderModal,
   renderToast,
 } from './ui/components.js';
@@ -36,7 +36,7 @@ export function renderAppMarkup() {
   return `
     <main class="app">
       <div class="phone-frame">${screen}</div>
-      ${renderMenu()}
+      ${renderBottomNavigation()}
       ${renderModal()}
       ${renderConfirmSheet()}
       ${renderToast()}

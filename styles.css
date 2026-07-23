@@ -23,6 +23,8 @@
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --page-bottom: #090a0d;
+  --visual-viewport-height: 100dvh;
+  --visual-viewport-offset-top: 0px;
   --nav-bottom-gap: clamp(8px, calc(var(--safe-bottom) - 24px), 14px);
   --nav-scroll-clearance: calc(103px + var(--nav-bottom-gap));
   font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
@@ -836,6 +838,28 @@ textarea {
   touch-action: pan-y;
 }
 
+.set-modal-backdrop {
+  inset: var(--visual-viewport-offset-top) 0 auto;
+  height: var(--visual-viewport-height);
+  place-items: center;
+  padding:
+    max(16px, var(--safe-top))
+    max(16px, var(--safe-right))
+    max(16px, var(--safe-bottom))
+    max(16px, var(--safe-left));
+  overflow-y: hidden;
+}
+
+.set-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(100%, 760px);
+  min-width: 0;
+  max-width: 100%;
+  max-height: min(860px, 100%);
+  overflow: hidden;
+}
+
 .sheet {
   padding: 10px;
   overflow-x: hidden;
@@ -879,7 +903,9 @@ textarea {
 
 .set-modal-header {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  position: relative;
+  z-index: 1;
 }
 
 .set-modal-header h2 {
@@ -888,15 +914,62 @@ textarea {
 }
 
 .set-modal-save {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.set-modal-save .save-icon {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.set-modal-bottom-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.set-modal > .modal-body {
+  width: 100%;
+  min-height: 0;
+  max-width: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-padding-block: 16px;
+  scrollbar-width: none;
+}
+
+.set-modal > .modal-body::-webkit-scrollbar {
+  display: none;
+}
+
+.set-modal .form-grid,
+.set-modal .two-col,
+.set-modal .field-group {
+  width: 100%;
   min-width: 0;
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 .set-modal input,
 .set-modal textarea {
   display: block;
+  width: 100%;
   inline-size: 100%;
-  min-inline-size: 0;
+  min-width: 100%;
+  min-inline-size: 100%;
+  max-width: 100%;
   max-inline-size: 100%;
 }
 
@@ -1192,10 +1265,6 @@ label {
 
   .set-modal-header h2 {
     margin-left: 2px;
-  }
-
-  .set-modal-save {
-    padding-inline: 13px;
   }
 
   .screen-title {

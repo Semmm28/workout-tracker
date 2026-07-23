@@ -1,7 +1,12 @@
 import { createController } from './js/controller.js';
 import { loadState } from './js/data.js';
 import { openDb } from './js/database.js';
-import { refreshApp, registerServiceWorker, setupServiceWorkerAutoRefresh } from './js/pwa.js';
+import {
+  refreshApp,
+  registerServiceWorker,
+  setupServiceWorkerAutoRefresh,
+  setupVisualViewportTracking,
+} from './js/pwa.js';
 import { renderAppMarkup, renderLoadingMarkup } from './js/render.js';
 import { deriveRouteFromHash, writeRoute } from './js/router.js';
 import { state } from './js/state.js';
@@ -38,6 +43,7 @@ controller = createController({
 async function init() {
   controller.attachEventDelegation();
   setupServiceWorkerAutoRefresh();
+  setupVisualViewportTracking();
   window.addEventListener('popstate', () => {
     state.route = deriveRouteFromHash();
     render();

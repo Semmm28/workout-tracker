@@ -44,17 +44,24 @@ test('all routes render their existing screen content', () => {
   });
 });
 
-test('set modal has close and save actions in its top header', () => {
+test('set modal has accessible icon-only save actions at the top and bottom', () => {
   loadFixture();
   state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
   state.modal = { type: 'set', mode: 'add', data: null };
 
   const markup = renderAppMarkup();
+  assert.match(markup, /class="modal-backdrop set-modal-backdrop fade-in"/);
   const header = markup.match(/<div class="modal-header set-modal-header">([\s\S]*?)<\/div>/)?.[1] || '';
   const form = markup.match(/<form class="modal-body" id="set-form">([\s\S]*?)<\/form>/)?.[1] || '';
 
   assert.match(header, /data-action="close-modal"/);
   assert.match(header, /<h2>Add Set<\/h2>/);
-  assert.match(header, /type="submit"[^>]*form="set-form"[^>]*>Save set<\/button>/);
-  assert.doesNotMatch(form, /modal-footer/);
+  assert.match(header, /type="submit"[^>]*class="[^"]*set-modal-save-top[^"]*"[^>]*form="set-form"[^>]*data-set-submit[^>]*aria-label="Save set"[^>]*title="Save set"[^>]*>[\s\S]*?class="save-icon"[^>]*aria-hidden="true"/);
+  assert.match(form, /type="submit"[^>]*class="[^"]*set-modal-save-bottom[^"]*"[^>]*form="set-form"[^>]*data-set-submit[^>]*aria-label="Save set"[^>]*title="Save set"[^>]*>[\s\S]*?class="save-icon"[^>]*aria-hidden="true"/);
+  assert.equal((markup.match(/data-set-submit/g) || []).length, 2);
+  assert.equal((markup.match(/aria-label="Save set"/g) || []).length, 2);
+  assert.equal((markup.match(/id="set-form"/g) || []).length, 1);
+  assert.doesNotMatch(header, />\s*Save set\s*<\/button>/);
+  assert.doesNotMatch(form, />\s*Save set\s*<\/button>/);
+  assert.doesNotMatch(form, /class="modal-footer"/);
 });

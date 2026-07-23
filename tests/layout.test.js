@@ -67,14 +67,47 @@ test('set form controls stay within one shared modal width on iOS', () => {
     /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
   );
   assert.match(rule('.field-group'), /min-width:\s*0/);
-  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-inline-size:\s*0/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-inline-size:\s*100%/);
   assert.match(rule('.set-modal input,\n.set-modal textarea'), /max-inline-size:\s*100%/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-width:\s*100%/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /max-width:\s*100%/);
 });
 
 test('set modal header places close, title and submit action from left to right', () => {
   const header = rule('.set-modal-header');
 
   assert.match(header, /display:\s*grid/);
-  assert.match(header, /grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)\s+auto/);
+  assert.match(header, /grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)\s+44px/);
   assert.match(rule('.set-modal-header h2'), /margin-left:\s*6px/);
+});
+
+test('set modal save icons have full touch targets and the bottom action aligns right', () => {
+  const save = rule('.set-modal-save');
+  const icon = rule('.set-modal-save .save-icon');
+  const footer = rule('.set-modal-bottom-actions');
+
+  assert.match(save, /width:\s*44px/);
+  assert.match(save, /min-width:\s*44px/);
+  assert.match(save, /height:\s*44px/);
+  assert.match(save, /min-height:\s*44px/);
+  assert.match(save, /place-items:\s*center/);
+  assert.match(icon, /stroke:\s*currentColor/);
+  assert.match(footer, /display:\s*flex/);
+  assert.match(footer, /justify-content:\s*flex-end/);
+});
+
+test('set modal is centered in the visible viewport and scrolls above the keyboard', () => {
+  const backdrop = rule('.set-modal-backdrop');
+  const modal = rule('.set-modal');
+  const body = rule('.set-modal > .modal-body');
+
+  assert.match(backdrop, /height:\s*var\(--visual-viewport-height\)/);
+  assert.match(backdrop, /place-items:\s*center/);
+  assert.match(backdrop, /overflow-y:\s*hidden/);
+  assert.match(modal, /grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/);
+  assert.match(modal, /max-height:\s*min\(860px,\s*100%\)/);
+  assert.match(modal, /overflow:\s*hidden/);
+  assert.match(body, /min-height:\s*0/);
+  assert.match(body, /overflow-y:\s*auto/);
+  assert.match(body, /-webkit-overflow-scrolling:\s*touch/);
 });

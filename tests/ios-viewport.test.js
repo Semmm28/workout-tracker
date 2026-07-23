@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 
 const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
+const app = await readFile(new URL('../app.js', import.meta.url), 'utf8');
+const pwa = await readFile(new URL('../js/pwa.js', import.meta.url), 'utf8');
 
 test('iOS standalone mode can paint into the safe areas', () => {
   assert.match(index, /name="viewport"[^>]*viewport-fit=cover/);
@@ -25,4 +27,13 @@ test('browser and launch surfaces match the page bottom color', () => {
   assert.equal(manifest.background_color, '#090a0d');
   assert.equal(manifest.theme_color, '#090a0d');
   assert.equal(manifest.display, 'standalone');
+});
+
+test('visual viewport changes keep the set modal above the iOS keyboard', () => {
+  assert.match(app, /setupVisualViewportTracking\(\)/);
+  assert.match(pwa, /window\.visualViewport/);
+  assert.match(pwa, /--visual-viewport-height/);
+  assert.match(pwa, /--visual-viewport-offset-top/);
+  assert.match(pwa, /viewport\?\.addEventListener\('resize'/);
+  assert.match(pwa, /viewport\?\.addEventListener\('scroll'/);
 });

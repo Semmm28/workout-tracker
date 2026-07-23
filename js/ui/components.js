@@ -142,6 +142,19 @@ export function renderSwipeContainer(type, id, content, disabled) {
   `;
 }
 
+function renderSetSaveButton(position) {
+  return `
+    <button
+      type="submit"
+      class="primary-btn set-modal-save set-modal-save-${position}"
+      form="set-form"
+      data-set-submit
+      aria-label="Save set"
+      title="Save set"
+    >${icon.save}</button>
+  `;
+}
+
 export function renderModal() {
   if (!state.modal) return '';
   const modal = state.modal;
@@ -217,12 +230,12 @@ export function renderModal() {
 
   const entry = modal.data || {};
   return `
-    <div class="modal-backdrop fade-in" data-action="backdrop-close">
+    <div class="modal-backdrop set-modal-backdrop fade-in" data-action="backdrop-close">
       <section class="modal set-modal slide-up" role="dialog" aria-modal="true" aria-label="${title}">
         <div class="modal-header set-modal-header">
           <button class="round-btn" data-action="close-modal" aria-label="Close">${icon.close}</button>
           <h2>${title}</h2>
-          <button type="submit" class="primary-btn set-modal-save" form="set-form">Save set</button>
+          ${renderSetSaveButton('top')}
         </div>
         <form class="modal-body" id="set-form">
           <div class="form-grid">
@@ -251,6 +264,9 @@ export function renderModal() {
               <textarea name="notes" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>
             </div>
             <div class="helper-text">Only weight and repetitions are required. Notes remain optional.</div>
+          </div>
+          <div class="set-modal-bottom-actions">
+            ${renderSetSaveButton('bottom')}
           </div>
         </form>
       </section>

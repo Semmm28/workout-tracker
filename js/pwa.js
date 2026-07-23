@@ -1,6 +1,24 @@
 let serviceWorkerRegistration = null;
 let isRefreshingApp = false;
 
+export function setupVisualViewportTracking() {
+  const root = document.documentElement;
+  const viewport = window.visualViewport;
+
+  const updateViewportVariables = () => {
+    const height = viewport?.height || window.innerHeight;
+    const offsetTop = viewport?.offsetTop || 0;
+    root.style.setProperty('--visual-viewport-height', `${Math.round(height)}px`);
+    root.style.setProperty('--visual-viewport-offset-top', `${Math.round(offsetTop)}px`);
+  };
+
+  updateViewportVariables();
+  window.addEventListener('resize', updateViewportVariables, { passive: true });
+  window.addEventListener('orientationchange', updateViewportVariables, { passive: true });
+  viewport?.addEventListener('resize', updateViewportVariables, { passive: true });
+  viewport?.addEventListener('scroll', updateViewportVariables, { passive: true });
+}
+
 export function setupServiceWorkerAutoRefresh() {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.addEventListener('controllerchange', () => {

@@ -962,15 +962,21 @@ textarea {
   max-width: 100%;
 }
 
+.set-modal .two-col {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
 .set-modal input,
 .set-modal textarea {
   display: block;
   width: 100%;
   inline-size: 100%;
-  min-width: 100%;
-  min-inline-size: 100%;
+  min-width: 0;
+  min-inline-size: 0;
   max-width: 100%;
   max-inline-size: 100%;
+  justify-self: stretch;
 }
 
 label {

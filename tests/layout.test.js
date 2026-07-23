@@ -55,7 +55,7 @@ test('overlays remain above the foreground navigation', () => {
   );
 });
 
-test('set form controls stay within one shared modal width on iOS', () => {
+test('set form controls use one shared full-width column at every viewport size', () => {
   assert.match(
     css,
     /input,\s*textarea,\s*select\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*100%/s,
@@ -63,14 +63,21 @@ test('set form controls stay within one shared modal width on iOS', () => {
   assert.match(rule('.modal-body'), /min-width:\s*0/);
   assert.match(rule('.form-grid'), /min-width:\s*0/);
   assert.match(
-    rule('.two-col'),
+    rule('.set-modal .two-col'),
+    /grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+  );
+  assert.doesNotMatch(
+    rule('.set-modal .two-col'),
     /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
   );
   assert.match(rule('.field-group'), /min-width:\s*0/);
-  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-inline-size:\s*100%/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /width:\s*100%/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /inline-size:\s*100%/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-inline-size:\s*0/);
   assert.match(rule('.set-modal input,\n.set-modal textarea'), /max-inline-size:\s*100%/);
-  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-width:\s*100%/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-width:\s*0/);
   assert.match(rule('.set-modal input,\n.set-modal textarea'), /max-width:\s*100%/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /justify-self:\s*stretch/);
 });
 
 test('set modal header places close, title and submit action from left to right', () => {

@@ -43,3 +43,18 @@ test('all routes render their existing screen content', () => {
     assert.match(renderAppMarkup(), new RegExp(text));
   });
 });
+
+test('set modal has close and save actions in its top header', () => {
+  loadFixture();
+  state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
+  state.modal = { type: 'set', mode: 'add', data: null };
+
+  const markup = renderAppMarkup();
+  const header = markup.match(/<div class="modal-header set-modal-header">([\s\S]*?)<\/div>/)?.[1] || '';
+  const form = markup.match(/<form class="modal-body" id="set-form">([\s\S]*?)<\/form>/)?.[1] || '';
+
+  assert.match(header, /data-action="close-modal"/);
+  assert.match(header, /<h2>Add Set<\/h2>/);
+  assert.match(header, /type="submit"[^>]*form="set-form"[^>]*>Save set<\/button>/);
+  assert.doesNotMatch(form, /modal-footer/);
+});

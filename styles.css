@@ -70,6 +70,8 @@ input,
 textarea,
 select {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
@@ -852,23 +854,50 @@ textarea {
   padding: 0 20px 20px;
   display: grid;
   gap: 16px;
+  min-width: 0;
   overflow-x: hidden;
 }
 
 .form-grid {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .two-col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
+  min-width: 0;
 }
 
 .field-group {
   display: grid;
   gap: 8px;
+  min-width: 0;
+}
+
+.set-modal-header {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+}
+
+.set-modal-header h2 {
+  justify-self: start;
+  margin-left: 6px;
+}
+
+.set-modal-save {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.set-modal input,
+.set-modal textarea {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 label {
@@ -1155,6 +1184,18 @@ label {
 @media (max-width: 560px) {
   .two-col {
     grid-template-columns: 1fr;
+  }
+
+  .set-modal-header {
+    gap: 10px;
+  }
+
+  .set-modal-header h2 {
+    margin-left: 2px;
+  }
+
+  .set-modal-save {
+    padding-inline: 13px;
   }
 
   .screen-title {

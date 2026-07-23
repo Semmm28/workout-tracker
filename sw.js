@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-log-shell-v10';
+const CACHE_NAME = 'workout-log-shell-v11';
 const APP_SHELL = [
   './',
   './index.html',

@@ -54,3 +54,27 @@ test('overlays remain above the foreground navigation', () => {
     /\.modal-backdrop,\s*\.sheet-backdrop,\s*\.toast-layer\s*\{[^}]*z-index:\s*30/s,
   );
 });
+
+test('set form controls stay within one shared modal width on iOS', () => {
+  assert.match(
+    css,
+    /input,\s*textarea,\s*select\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*100%/s,
+  );
+  assert.match(rule('.modal-body'), /min-width:\s*0/);
+  assert.match(rule('.form-grid'), /min-width:\s*0/);
+  assert.match(
+    rule('.two-col'),
+    /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
+  );
+  assert.match(rule('.field-group'), /min-width:\s*0/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-inline-size:\s*0/);
+  assert.match(rule('.set-modal input,\n.set-modal textarea'), /max-inline-size:\s*100%/);
+});
+
+test('set modal header places close, title and submit action from left to right', () => {
+  const header = rule('.set-modal-header');
+
+  assert.match(header, /display:\s*grid/);
+  assert.match(header, /grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)\s+auto/);
+  assert.match(rule('.set-modal-header h2'), /margin-left:\s*6px/);
+});

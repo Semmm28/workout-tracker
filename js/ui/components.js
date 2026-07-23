@@ -218,10 +218,11 @@ export function renderModal() {
   const entry = modal.data || {};
   return `
     <div class="modal-backdrop fade-in" data-action="backdrop-close">
-      <section class="modal slide-up" role="dialog" aria-modal="true" aria-label="${title}">
-        <div class="modal-header">
-          <h2>${title}</h2>
+      <section class="modal set-modal slide-up" role="dialog" aria-modal="true" aria-label="${title}">
+        <div class="modal-header set-modal-header">
           <button class="round-btn" data-action="close-modal" aria-label="Close">${icon.close}</button>
+          <h2>${title}</h2>
+          <button type="submit" class="primary-btn set-modal-save" form="set-form">Save set</button>
         </div>
         <form class="modal-body" id="set-form">
           <div class="form-grid">
@@ -250,10 +251,6 @@ export function renderModal() {
               <textarea name="notes" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>
             </div>
             <div class="helper-text">Only weight and repetitions are required. Notes remain optional.</div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="secondary-btn" data-action="close-modal">Cancel</button>
-            <button type="submit" class="primary-btn">Save set</button>
           </div>
         </form>
       </section>

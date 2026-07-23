@@ -48,6 +48,17 @@ test('foreground navigation keeps a compact safe-area-aware bottom gap', () => {
   assert.match(root, /--nav-scroll-clearance:\s*calc\(103px\s*\+\s*var\(--nav-bottom-gap\)\)/);
 });
 
+test('navigation buttons center each icon and label as one group', () => {
+  const tab = rule('.tab-button');
+
+  assert.match(tab, /display:\s*flex/);
+  assert.match(tab, /flex-direction:\s*column/);
+  assert.match(tab, /align-items:\s*center/);
+  assert.match(tab, /justify-content:\s*center/);
+  assert.match(tab, /padding:\s*3px\s+1px/);
+  assert.doesNotMatch(tab, /justify-content:\s*flex-end/);
+});
+
 test('overlays remain above the foreground navigation', () => {
   assert.match(
     css,

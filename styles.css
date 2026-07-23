@@ -954,12 +954,20 @@ textarea {
   display: none;
 }
 
+#set-form {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .set-modal .form-grid,
 .set-modal .two-col,
 .set-modal .field-group {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .set-modal .two-col {
@@ -977,6 +985,19 @@ textarea {
   max-width: 100%;
   max-inline-size: 100%;
   justify-self: stretch;
+}
+
+@supports (-webkit-touch-callout: none) {
+  #set-form input[type="date"],
+  #set-form input[type="time"] {
+    box-sizing: border-box;
+    width: -webkit-fill-available;
+    inline-size: -webkit-fill-available;
+    min-width: 0;
+    min-inline-size: 0;
+    max-width: 100%;
+    max-inline-size: 100%;
+  }
 }
 
 label {

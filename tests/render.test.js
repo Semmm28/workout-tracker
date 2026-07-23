@@ -83,3 +83,15 @@ test('set modal save actions fall back to SVG instead of rendering undefined', (
     icon.save = currentSaveIcon;
   }
 });
+
+test('set modal keeps native date and time input semantics', () => {
+  loadFixture();
+  state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
+  state.modal = { type: 'set', mode: 'add', data: null };
+
+  const markup = renderAppMarkup();
+  const form = markup.match(/<form class="modal-body" id="set-form">([\s\S]*?)<\/form>/)?.[1] || '';
+
+  assert.match(form, /<input name="date" type="date" value="[^"]*" \/>/);
+  assert.match(form, /<input name="time" type="time" value="[^"]*" \/>/);
+});

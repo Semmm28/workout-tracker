@@ -67,12 +67,19 @@ test('overlays remain above the foreground navigation', () => {
 });
 
 test('set form controls use one shared full-width column at every viewport size', () => {
+  const setGroups = rule('.set-modal .form-grid,\n.set-modal .two-col,\n.set-modal .field-group');
+
   assert.match(
     css,
     /input,\s*textarea,\s*select\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*100%/s,
   );
   assert.match(rule('.modal-body'), /min-width:\s*0/);
   assert.match(rule('.form-grid'), /min-width:\s*0/);
+  assert.match(rule('#set-form'), /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(setGroups, /width:\s*100%/);
+  assert.match(setGroups, /min-width:\s*0/);
+  assert.match(setGroups, /max-width:\s*100%/);
+  assert.match(setGroups, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(
     rule('.set-modal .two-col'),
     /grid-template-columns:\s*minmax\(0,\s*1fr\)/,
@@ -89,6 +96,17 @@ test('set form controls use one shared full-width column at every viewport size'
   assert.match(rule('.set-modal input,\n.set-modal textarea'), /min-width:\s*0/);
   assert.match(rule('.set-modal input,\n.set-modal textarea'), /max-width:\s*100%/);
   assert.match(rule('.set-modal input,\n.set-modal textarea'), /justify-self:\s*stretch/);
+});
+
+test('iOS date and time controls use the available set form width without changing input types', () => {
+  assert.match(
+    css,
+    /@supports\s*\(-webkit-touch-callout:\s*none\)\s*\{[\s\S]*#set-form input\[type="date"\],\s*#set-form input\[type="time"\]\s*\{[^}]*width:\s*-webkit-fill-available;[^}]*inline-size:\s*-webkit-fill-available;[^}]*min-width:\s*0;[^}]*max-width:\s*100%/s,
+  );
+  assert.doesNotMatch(
+    css,
+    /#set-form input\[type="(?:date|time)"\][^}]*appearance:\s*none/s,
+  );
 });
 
 test('set modal header places close, title and submit action from left to right', () => {

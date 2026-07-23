@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-log-shell-v12';
+const CACHE_NAME = 'workout-log-shell-v13';
 const APP_SHELL = [
   './',
   './index.html',
@@ -59,11 +59,12 @@ self.addEventListener('fetch', (event) => {
 
   if (requestUrl.origin === location.origin) {
     event.respondWith(
-      caches.match(event.request).then((response) => response || fetch(event.request).then((networkResponse) => {
-        const copy = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return networkResponse;
-      }))
+      caches.open(CACHE_NAME).then((cache) => (
+        cache.match(event.request).then((response) => response || fetch(event.request).then((networkResponse) => {
+          cache.put(event.request, networkResponse.clone());
+          return networkResponse;
+        }))
+      ))
     );
   }
 });

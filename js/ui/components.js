@@ -50,6 +50,18 @@ const tabIcons = {
   `,
 };
 
+const SAVE_ICON_FALLBACK = `
+  <svg class="save-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M5 3.5h12.2L20.5 6.8v13.7h-17v-17Z" />
+    <path d="M8 3.5v6h8v-6" />
+    <path d="M8 20.5v-7h8v7" />
+  </svg>
+`;
+
+function getSaveIconMarkup() {
+  return icon.save || SAVE_ICON_FALLBACK;
+}
+
 function renderTab({ action, label, iconName, active }) {
   return `
     <button
@@ -151,7 +163,7 @@ function renderSetSaveButton(position) {
       data-set-submit
       aria-label="Save set"
       title="Save set"
-    >${icon.save}</button>
+    >${getSaveIconMarkup()}</button>
   `;
 }
 

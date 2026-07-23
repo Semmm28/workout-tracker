@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { icon } from '../js/constants.js';
 import { renderAppMarkup } from '../js/render.js';
 import { state } from '../js/state.js';
 
@@ -64,4 +65,21 @@ test('set modal has accessible icon-only save actions at the top and bottom', ()
   assert.doesNotMatch(header, />\s*Save set\s*<\/button>/);
   assert.doesNotMatch(form, />\s*Save set\s*<\/button>/);
   assert.doesNotMatch(form, /class="modal-footer"/);
+});
+
+test('set modal save actions fall back to SVG instead of rendering undefined', () => {
+  loadFixture();
+  state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
+  state.modal = { type: 'set', mode: 'add', data: null };
+
+  const currentSaveIcon = icon.save;
+  icon.save = undefined;
+
+  try {
+    const markup = renderAppMarkup();
+    assert.doesNotMatch(markup, />\s*undefined\s*<\/button>/);
+    assert.equal((markup.match(/class="save-icon"/g) || []).length, 2);
+  } finally {
+    icon.save = currentSaveIcon;
+  }
 });

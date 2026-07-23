@@ -41,3 +41,9 @@ test('the offline shell explicitly caches every application module', () => {
     assert.match(serviceWorker, new RegExp(`['"]${cachePath.replaceAll('.', '\\.')}['"]`));
   }
 });
+
+test('runtime requests only read from the current versioned shell cache', () => {
+  const serviceWorker = readFileSync(resolve(root, 'sw.js'), 'utf8');
+  assert.match(serviceWorker, /caches\.open\(CACHE_NAME\)[\s\S]*cache\.match\(event\.request\)/);
+  assert.doesNotMatch(serviceWorker, /caches\.match\(event\.request\)/);
+});

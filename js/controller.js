@@ -19,6 +19,7 @@ import {
   debounce,
   formatDateKey,
   formatWeight,
+  normalizeOptionalRpe,
   parseBodyweightDate,
   parseDateTime,
   persistChartSeriesMode,
@@ -157,7 +158,9 @@ export function createController({ render, navigate, refreshApp }) {
         const form = new FormData(setForm);
         const weight = String(form.get('weight') || '').trim();
         const reps = String(form.get('reps') || '').trim();
+        const rpe = normalizeOptionalRpe(form.get('rpe'));
         if (!weight || !reps) return;
+        if (rpe === null) return;
         const payload = {
           weight,
           reps,
@@ -167,9 +170,7 @@ export function createController({ render, navigate, refreshApp }) {
             state.modal.mode === 'edit' ? state.modal.data.loggedAt : undefined,
           ),
           notes: String(form.get('notes') || '').trim(),
-          rpe: '',
-          restTime: '',
-          duration: '',
+          rpe,
         };
         await saveSet(payload, state.modal.mode === 'edit' ? state.modal.data : null);
         closeModal();

@@ -147,3 +147,17 @@ test('set modal is centered in the visible viewport and scrolls above the keyboa
   assert.match(body, /overflow-y:\s*auto/);
   assert.match(body, /-webkit-overflow-scrolling:\s*touch/);
 });
+
+test('set metrics use three shrinkable columns so the PR slot fits narrow phones', () => {
+  const summary = rule('.set-summary');
+  const summaryItem = rule('.set-summary-item');
+
+  assert.match(summary, /min-width:\s*0/);
+  assert.match(summary, /display:\s*grid/);
+  assert.match(summary, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(summaryItem, /min-width:\s*0/);
+  assert.match(
+    css,
+    /@media \(max-width: 560px\)[\s\S]*\.set-summary-item\s*\{[^}]*min-width:\s*0/,
+  );
+});

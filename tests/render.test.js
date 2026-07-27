@@ -92,6 +92,62 @@ test('set modal keeps native date and time input semantics', () => {
   const markup = renderAppMarkup();
   const form = markup.match(/<form class="modal-body" id="set-form">([\s\S]*?)<\/form>/)?.[1] || '';
 
-  assert.match(form, /<input name="date" type="date" value="[^"]*" \/>/);
-  assert.match(form, /<input name="time" type="time" value="[^"]*" \/>/);
+  assert.match(form, /<input id="set-date" name="date" type="date" value="[^"]*" \/>/);
+  assert.match(form, /<input id="set-time" name="time" type="time" value="[^"]*" \/>/);
+});
+
+test('set modal restores optional RPE without making it required', () => {
+  loadFixture();
+  state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
+  state.modal = {
+    type: 'set',
+    mode: 'edit',
+    data: { ...state.sets[0], rpe: '8.5' },
+  };
+
+  const markup = renderAppMarkup();
+  const rpeInput = markup.match(/<input\s+id="set-rpe"[\s\S]*?\/>/)?.[0] || '';
+
+  assert.match(markup, /<label for="set-rpe">RPE<\/label>/);
+  assert.match(rpeInput, /name="rpe"/);
+  assert.match(rpeInput, /type="number"/);
+  assert.match(rpeInput, /step="0.5"/);
+  assert.match(rpeInput, /min="1"/);
+  assert.match(rpeInput, /max="10"/);
+  assert.match(rpeInput, /value="8.5"/);
+  assert.doesNotMatch(rpeInput, /\brequired\b/);
+});
+
+test('set rows expose the same accessible edit and delete menu for click and swipe', () => {
+  loadFixture();
+  state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
+
+  const markup = renderAppMarkup();
+  assert.match(markup, /class="swipe-track" data-swipe-toggle="set" role="button" tabindex="0" aria-expanded="false"/);
+  assert.match(markup, /aria-label="Set 1, 100 kilograms, 8 repetitions, e1RM 126\.7 kilograms; show edit and delete actions"/);
+  assert.match(markup, /class="swipe-actions"[^>]*aria-hidden="true" inert/);
+  assert.match(markup, /data-action="edit-set"[^>]*tabindex="-1"/);
+  assert.match(markup, /data-action="delete-set"[^>]*tabindex="-1"/);
+});
+
+test('machine history renders chronological e1RM trophies and optional RPE', () => {
+  loadFixture();
+  state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
+  state.sets = [
+    { id: 'set_4', machineId: 'machine_1', loggedAt: '2026-07-04T10:00:00.000Z', weight: '100', reps: '6', rpe: '8.5' },
+    { id: 'set_3', machineId: 'machine_1', loggedAt: '2026-07-03T10:00:00.000Z', weight: '90', reps: '9' },
+    { id: 'set_2', machineId: 'machine_1', loggedAt: '2026-07-02T10:00:00.000Z', weight: '90', reps: '9' },
+    { id: 'set_1', machineId: 'machine_1', loggedAt: '2026-07-01T10:00:00.000Z', weight: '100', reps: '5' },
+  ];
+
+  const markup = renderAppMarkup();
+  assert.equal((markup.match(/class="set-pr-slot"/g) || []).length, 4);
+  assert.equal((markup.match(/class="set-pr-trophy"/g) || []).length, 3);
+  assert.match(markup, /aria-label="e1RM personal record">🏆/);
+  assert.match(markup, /class="tag-chip">RPE 8\.5<\/div>/);
+
+  const setLabelIndex = markup.indexOf('class="set-name">Set 1');
+  const trophySlotIndex = markup.indexOf('class="set-pr-slot"', setLabelIndex);
+  const weightIndex = markup.indexOf('>Weight<', trophySlotIndex);
+  assert.ok(setLabelIndex < trophySlotIndex && trophySlotIndex < weightIndex);
 });

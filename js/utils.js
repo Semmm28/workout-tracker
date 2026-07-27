@@ -80,6 +80,16 @@ export function formatWeight(value) {
   return Number.isInteger(number) ? `${number}` : number.toFixed(1);
 }
 
+export function normalizeOptionalRpe(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return '';
+
+  const numeric = Number(trimmed);
+  if (!Number.isFinite(numeric) || numeric < 1 || numeric > 10) return null;
+  if (!Number.isInteger(numeric * 2)) return null;
+  return formatWeight(numeric);
+}
+
 export function buildInitials(name) {
   const value = String(name || '').trim();
   if (!value) return '--';

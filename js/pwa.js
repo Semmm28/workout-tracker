@@ -1,5 +1,6 @@
 let serviceWorkerRegistration = null;
 let isRefreshingApp = false;
+const CACHE_PREFIX = 'workout-log-shell-';
 
 export function setupVisualViewportTracking() {
   const root = document.documentElement;
@@ -34,15 +35,15 @@ export async function refreshApp(showToast) {
   try {
     showToast('Refreshing app…');
 
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((registration) => registration.unregister()));
+    if ('serviceWorker' in navigator && serviceWorkerRegistration) {
+      await serviceWorkerRegistration.unregister();
       serviceWorkerRegistration = null;
     }
 
     if ('caches' in window) {
       const cacheKeys = await caches.keys();
-      await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+      const ownCacheKeys = cacheKeys.filter((key) => key.startsWith(CACHE_PREFIX));
+      await Promise.all(ownCacheKeys.map((key) => caches.delete(key)));
     }
 
     const url = new URL(window.location.href);

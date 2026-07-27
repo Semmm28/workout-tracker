@@ -135,21 +135,26 @@ export function buildChartSvg(series) {
   `;
 }
 
-export function renderSwipeContainer(type, id, content, disabled) {
+export function renderSwipeContainer(type, id, content, disabled, options = {}) {
   if (disabled) return content;
+  const escapedId = escapeAttr(id);
+  const isClickableSet = type === 'set';
   const actionWidth = type === 'bodyweight' ? ACTION_WIDTH / 2 : ACTION_WIDTH;
   const actions = type === 'bodyweight'
-    ? `<button class="delete" data-action="delete-${type}" data-id="${id}">Delete</button>`
+    ? `<button class="delete" data-action="delete-${type}" data-id="${escapedId}" tabindex="-1">Delete</button>`
     : `
-        <button class="edit" data-action="edit-${type}" data-id="${id}">Edit</button>
-        <button class="delete" data-action="delete-${type}" data-id="${id}">Delete</button>
+        <button class="edit" data-action="edit-${type}" data-id="${escapedId}" tabindex="-1">Edit</button>
+        <button class="delete" data-action="delete-${type}" data-id="${escapedId}" tabindex="-1">Delete</button>
       `;
+  const setToggleAttributes = isClickableSet
+    ? `data-swipe-toggle="set" role="button" tabindex="0" aria-expanded="false" aria-label="${escapeAttr(options.label || 'Set')}; show edit and delete actions"`
+    : '';
   return `
-    <div class="swipe-row" data-swipe-type="${type}" data-id="${id}" data-action-width="${actionWidth}">
-      <div class="swipe-actions">
+    <div class="swipe-row" data-swipe-type="${type}" data-id="${escapedId}" data-action-width="${actionWidth}">
+      <div class="swipe-actions" role="group" aria-label="${isClickableSet ? 'Set actions' : `${type} actions`}" aria-hidden="true" inert>
         ${actions}
       </div>
-      <div class="swipe-track">${content}</div>
+      <div class="swipe-track" ${setToggleAttributes}>${content}</div>
     </div>
   `;
 }
@@ -253,29 +258,43 @@ export function renderModal() {
           <div class="form-grid">
             <div class="two-col">
               <div class="field-group">
-                <label>Weight <span class="required-dot">•</span></label>
-                <input name="weight" type="number" inputmode="decimal" step="0.5" min="0" required placeholder="0" value="${escapeAttr(entry.weight || '')}" />
+                <label for="set-weight">Weight <span class="required-dot">•</span></label>
+                <input id="set-weight" name="weight" type="number" inputmode="decimal" step="0.5" min="0" required placeholder="0" value="${escapeAttr(entry.weight || '')}" />
               </div>
               <div class="field-group">
-                <label>Repetitions <span class="required-dot">•</span></label>
-                <input name="reps" type="number" inputmode="numeric" step="1" min="0" required placeholder="0" value="${escapeAttr(entry.reps || '')}" />
+                <label for="set-reps">Repetitions <span class="required-dot">•</span></label>
+                <input id="set-reps" name="reps" type="number" inputmode="numeric" step="1" min="0" required placeholder="0" value="${escapeAttr(entry.reps || '')}" />
               </div>
             </div>
             <div class="two-col">
               <div class="field-group">
-                <label>Date</label>
-                <input name="date" type="date" value="${escapeAttr(toInputDate(entry.loggedAt))}" />
+                <label for="set-date">Date</label>
+                <input id="set-date" name="date" type="date" value="${escapeAttr(toInputDate(entry.loggedAt))}" />
               </div>
               <div class="field-group">
-                <label>Time</label>
-                <input name="time" type="time" value="${escapeAttr(toInputTime(entry.loggedAt))}" />
+                <label for="set-time">Time</label>
+                <input id="set-time" name="time" type="time" value="${escapeAttr(toInputTime(entry.loggedAt))}" />
               </div>
             </div>
             <div class="field-group">
-              <label>Notes</label>
-              <textarea name="notes" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>
+              <label for="set-rpe">RPE</label>
+              <input
+                id="set-rpe"
+                name="rpe"
+                type="number"
+                inputmode="decimal"
+                step="0.5"
+                min="1"
+                max="10"
+                placeholder="Optional (1–10)"
+                value="${escapeAttr(entry.rpe ?? '')}"
+              />
             </div>
-            <div class="helper-text">Only weight and repetitions are required. Notes remain optional.</div>
+            <div class="field-group">
+              <label for="set-notes">Notes</label>
+              <textarea id="set-notes" name="notes" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>
+            </div>
+            <div class="helper-text">Only weight and repetitions are required. RPE and notes remain optional.</div>
           </div>
           <div class="set-modal-bottom-actions">
             ${renderSetSaveButton('bottom')}

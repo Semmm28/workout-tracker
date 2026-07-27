@@ -4,6 +4,7 @@ import {
   chartSeriesModeMetric,
   currentBrand,
   currentMachine,
+  e1rmPrSetIds,
   getVisibleBrands,
   getVisibleMachines,
   groupedSets,
@@ -196,8 +197,10 @@ function renderChartCard(machineId) {
   `;
 }
 
-function renderSetRow(entry, setNumber) {
+function renderSetRow(entry, setNumber, isPersonalRecord) {
   const optional = [];
+  const rpe = String(entry.rpe ?? '').trim();
+  if (rpe) optional.push(`<div class="tag-chip">RPE ${safeText(rpe)}</div>`);
   if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
   const e1rm = formatWeight(estimateE1rm(Number(entry.weight), Number(entry.reps)));
 
@@ -207,6 +210,9 @@ function renderSetRow(entry, setNumber) {
         <div>
           <div class="set-name">Set ${setNumber}</div>
           <div class="item-subtitle">${safeText(formatTime(entry.loggedAt))}</div>
+        </div>
+        <div class="set-pr-slot">
+          ${isPersonalRecord ? '<span class="set-pr-trophy" role="img" aria-label="e1RM personal record">🏆</span>' : ''}
         </div>
         <div class="set-summary" aria-label="Set summary">
           <div class="set-summary-item set-summary-box">
@@ -227,10 +233,12 @@ function renderSetRow(entry, setNumber) {
     </div>
   `;
 
-  return renderSwipeContainer('set', entry.id, content, false);
+  return renderSwipeContainer('set', entry.id, content, false, {
+    label: `Set ${setNumber}, ${entry.weight} kilograms, ${entry.reps} repetitions, e1RM ${e1rm} kilograms`,
+  });
 }
 
-function renderDateGroup(group) {
+function renderDateGroup(group, personalRecordIds) {
   return `
     <section class="date-group slide-up">
       <div class="date-heading">
@@ -238,7 +246,11 @@ function renderDateGroup(group) {
         <div class="muted">${group.items.length} set${group.items.length === 1 ? '' : 's'}</div>
       </div>
       <div class="set-stack">
-        ${group.items.map((entry, index) => renderSetRow(entry, index + 1)).join('')}
+        ${group.items.map((entry, index) => renderSetRow(
+          entry,
+          index + 1,
+          personalRecordIds.has(entry.id),
+        )).join('')}
       </div>
     </section>
   `;
@@ -260,6 +272,7 @@ export function renderMachineDetailScreen() {
     `;
   }
   const groups = groupedSets(machine.id);
+  const personalRecordIds = e1rmPrSetIds(machine.id);
   return `
     <section class="screen-shell">
       <div class="screen-top fade-in">
@@ -281,7 +294,7 @@ export function renderMachineDetailScreen() {
           ` : ''}
           ${renderChartCard(machine.id)}
           ${groups.length
-            ? groups.map((group) => renderDateGroup(group)).join('')
+            ? groups.map((group) => renderDateGroup(group, personalRecordIds)).join('')
             : `
               <section class="empty-state">
                 <div class="loading-logo">${safeText(buildInitials(machine.name))}</div>

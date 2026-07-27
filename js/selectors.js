@@ -33,6 +33,51 @@ export function getMachineSets(machineId) {
   return state.sets.filter((entry) => entry.machineId === machineId);
 }
 
+function sortableTimestamp(value) {
+  if (value === null || value === undefined || value === '') return Number.POSITIVE_INFINITY;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
+}
+
+export function compareSetsChronologically(a, b) {
+  const aLoggedAt = sortableTimestamp(a.loggedAt);
+  const bLoggedAt = sortableTimestamp(b.loggedAt);
+  if (aLoggedAt !== bLoggedAt) return aLoggedAt < bLoggedAt ? -1 : 1;
+
+  const aCreatedAt = sortableTimestamp(a.createdAt);
+  const bCreatedAt = sortableTimestamp(b.createdAt);
+  if (aCreatedAt !== bCreatedAt) return aCreatedAt < bCreatedAt ? -1 : 1;
+
+  return String(a.id || '').localeCompare(String(b.id || ''));
+}
+
+export function e1rmPrSetIds(machineId) {
+  const personalRecords = new Set();
+  let highestE1rm = Number.NEGATIVE_INFINITY;
+
+  getMachineSets(machineId)
+    .slice()
+    .sort(compareSetsChronologically)
+    .forEach((entry) => {
+      const weight = Number(entry.weight);
+      const reps = Number(entry.reps);
+      const loggedAt = new Date(entry.loggedAt).getTime();
+      if (!Number.isFinite(loggedAt) || !Number.isFinite(weight) || !Number.isFinite(reps)) return;
+      if (weight <= 0 || reps <= 0) return;
+
+      const e1rm = estimateE1rm(weight, reps);
+      const tolerance = Number.EPSILON
+        * Math.max(1, Math.abs(e1rm), Math.abs(highestE1rm))
+        * 8;
+      if (highestE1rm === Number.NEGATIVE_INFINITY || e1rm - highestE1rm > tolerance) {
+        personalRecords.add(entry.id);
+        highestE1rm = e1rm;
+      }
+    });
+
+  return personalRecords;
+}
+
 export function machineForSet(entry) {
   return state.machines.find((machine) => machine.id === entry.machineId) || null;
 }
@@ -53,7 +98,7 @@ export function groupedSets(machineId) {
     .sort((a, b) => new Date(b[0]) - new Date(a[0]))
     .map(([, items]) => ({
       displayDate: formatDate(items[0].loggedAt),
-      items: items.sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt)),
+      items: items.sort(compareSetsChronologically),
     }));
 }
 

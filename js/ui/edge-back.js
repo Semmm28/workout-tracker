@@ -2,7 +2,7 @@ const EDGE_WIDTH = 28;
 const INTENT_DISTANCE = 12;
 const BACK_DISTANCE = 72;
 
-export function setupEdgeBackGesture({ canGoBack, goBack, target = document, viewport = window }) {
+export function setupEdgeBackGesture({ canGoBack, goBack, target = document }) {
   let gesture = null;
   let suppressClickUntil = 0;
 
@@ -13,14 +13,14 @@ export function setupEdgeBackGesture({ canGoBack, goBack, target = document, vie
       return;
     }
     if (event.button !== 0 || !canGoBack()) return;
-    if (event.clientX < viewport.innerWidth - EDGE_WIDTH || event.clientX > viewport.innerWidth) return;
+    if (event.clientX < 0 || event.clientX > EDGE_WIDTH) return;
     if (event.target.closest('input, textarea, select, [contenteditable]')) return;
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, horizontal: false };
   };
 
   const onPointerMove = (event) => {
     if (!gesture || event.pointerId !== gesture.id) return;
-    const dx = gesture.x - event.clientX;
+    const dx = event.clientX - gesture.x;
     const dy = Math.abs(event.clientY - gesture.y);
     if (!gesture.horizontal) {
       if (Math.max(Math.abs(dx), dy) < INTENT_DISTANCE) return;
@@ -36,7 +36,7 @@ export function setupEdgeBackGesture({ canGoBack, goBack, target = document, vie
 
   const onPointerUp = (event) => {
     if (!gesture || event.pointerId !== gesture.id) return;
-    const dx = gesture.x - event.clientX;
+    const dx = event.clientX - gesture.x;
     const dy = Math.abs(event.clientY - gesture.y);
     const horizontal = gesture.horizontal;
     gesture = null;

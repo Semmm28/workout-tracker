@@ -10,9 +10,9 @@ function harness(canGoBack = () => true) {
       addEventListener: (name, handler) => handlers.set(name, handler),
       removeEventListener: (name) => handlers.delete(name),
     },
-    viewport: { innerWidth: 393 }, canGoBack, goBack: () => backCount++,
+    canGoBack, goBack: () => backCount++,
   });
-  const send = (name, x = 390, y = 300, overrides = {}) => {
+  const send = (name, x = 3, y = 300, overrides = {}) => {
     const event = {
       clientX: x, clientY: y, isPrimary: true, pointerId: 1, button: 0,
       cancelable: true, target: { closest: () => null },
@@ -27,26 +27,27 @@ function harness(canGoBack = () => true) {
   return { send, cleanup, handlers, backCount: () => backCount };
 }
 
-test('right-edge swipe goes back once and prevents a release click', () => {
+test('rightward left-edge swipe goes back once and prevents a release click', () => {
   const h = harness();
   h.send('pointerdown');
-  assert.equal(h.send('touchstart', 390, 300, { touches: [{}] }).stopped, true);
-  h.send('pointermove', 340, 303);
-  h.send('pointerup', 270, 305);
-  h.send('pointerup', 270, 305);
+  assert.equal(h.send('touchstart', 3, 300, { touches: [{}] }).stopped, true);
+  h.send('pointermove', 53, 303);
+  h.send('pointerup', 123, 305);
+  h.send('pointerup', 123, 305);
   assert.equal(h.backCount(), 1);
   assert.equal(h.send('click').prevented, true);
   h.send('pointerdown', 200);
   assert.equal(h.send('click').prevented, undefined);
 });
 
-test('scrolls, short drags, diagonal drags and non-edge gestures do not go back', () => {
+test('scrolls, short drags, diagonal drags and center or right-edge gestures do not go back', () => {
   for (const [start, move, end] of [
-    [[250, 300], [150, 300], [100, 300]],
-    [[390, 300], [365, 300], [350, 300]],
-    [[390, 300], [380, 350], [270, 351]],
-    [[390, 300], [370, 305], [270, 380]],
-    [[370, 300], [390, 300], [270, 300]],
+    [[143, 300], [243, 300], [293, 300]],
+    [[390, 300], [290, 300], [240, 300]],
+    [[3, 300], [28, 300], [43, 300]],
+    [[3, 300], [13, 350], [123, 351]],
+    [[3, 300], [23, 305], [123, 380]],
+    [[23, 300], [3, 300], [123, 300]],
   ]) {
     const h = harness();
     h.send('pointerdown', ...start);
@@ -60,9 +61,9 @@ test('cancelled and multi-finger gestures do not navigate', () => {
   for (const cancel of ['pointercancel', 'pointerdown', 'touchstart']) {
     const h = harness();
     h.send('pointerdown');
-    h.send('pointermove', 340);
-    h.send(cancel, 380, 300, { pointerId: 2, isPrimary: false, touches: [{}, {}] });
-    h.send('pointerup', 250);
+    h.send('pointermove', 53);
+    h.send(cancel, 13, 300, { pointerId: 2, isPrimary: false, touches: [{}, {}] });
+    h.send('pointerup', 143);
     assert.equal(h.backCount(), 0);
   }
 });
@@ -70,10 +71,10 @@ test('cancelled and multi-finger gestures do not navigate', () => {
 test('inputs and unavailable back destinations leave ordinary interactions untouched', () => {
   for (const input of [false, true]) {
     const h = harness(() => input);
-    h.send('pointerdown', 390, 300, { target: { closest: () => input ? {} : null } });
-    assert.equal(h.send('touchstart', 390, 300, { touches: [{}] }).stopped, undefined);
-    h.send('pointermove', 340);
-    h.send('pointerup', 250);
+    h.send('pointerdown', 3, 300, { target: { closest: () => input ? {} : null } });
+    assert.equal(h.send('touchstart', 3, 300, { touches: [{}] }).stopped, undefined);
+    h.send('pointermove', 53);
+    h.send('pointerup', 143);
     assert.equal(h.backCount(), 0);
     h.cleanup();
     assert.equal(h.handlers.size, 0);
@@ -84,8 +85,8 @@ test('a destination disappearing during a gesture does not trigger navigation', 
   let available = true;
   const h = harness(() => available);
   h.send('pointerdown');
-  h.send('pointermove', 340);
+  h.send('pointermove', 53);
   available = false;
-  h.send('pointerup', 250);
+  h.send('pointerup', 143);
   assert.equal(h.backCount(), 0);
 });

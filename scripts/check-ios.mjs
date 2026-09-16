@@ -26,6 +26,15 @@ assert.match(project, /PrivacyInfo\.xcprivacy in Resources/);
 assert.match(privacy, /NSPrivacyAccessedAPICategoryFileTimestamp/);
 assert.match(privacy, /C617\.1/);
 assert.match(info, /ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/);
+assert.match(info, /<string>remote-notification<\/string>/);
+for (const [build, cloud, push] of [['Debug', 'Development', 'development'], ['Release', 'Production', 'production']]) {
+  const entitlements = await read(`ios/App/App/App.${build}.entitlements`);
+  assert.ok(project.includes(`CODE_SIGN_ENTITLEMENTS = App/App.${build}.entitlements;`));
+  assert.ok(entitlements.includes(`<string>iCloud.${config.appId}</string>`), 'CloudKit container must match the registered app.');
+  assert.match(entitlements, /<string>CloudKit<\/string>/);
+  assert.ok(entitlements.includes(`<string>${cloud}</string>`), `${build} must use the ${cloud} CloudKit environment.`);
+  assert.ok(entitlements.includes(`<string>${push}</string>`), `${build} must use the ${push} push environment.`);
+}
 assert.match(swiftPackage, /CapacitorFilesystem/);
 assert.match(swiftPackage, /CapacitorShare/);
 assert.ok(!swiftPackage.includes('C:\\'), 'Native dependencies must use portable paths.');

@@ -36,8 +36,9 @@ De voorbereide identifiers zijn:
 | Appversie | `0.1.0` |
 | Eerste ondersteunde iOS-versie | iOS 16 |
 
-De Bundle ID is nog niet geregistreerd bij Apple. Registreer deze in Apple
-Developer en maak een apprecord aan in App Store Connect met dezelfde ID.
+De Bundle ID is geregistreerd bij Apple. Het apprecord is aangemaakt met naam
+Workout Log, SKU `workout-log-ios` en Apple ID `6812724816`.
+[Open TestFlight](https://appstoreconnect.apple.com/teams/71cf442b-6b28-4bd1-a103-e254d2d06fc3/apps/6812724816/testflight).
 Maak een App Store Connect API-sleutel en voeg deze in Codemagic toe onder
 **Team settings > Team integrations > Developer Portal**, met de naam `Codemagic`.
 Voeg ook een **Apple Distribution**-certificaat en een bijpassend
@@ -85,6 +86,26 @@ De override voor `xcode > uuid` gebruikt de laatste CommonJS-compatibele v11-fix
 voor de transitive npm-advisory in Capacitor CLI. `xcode` gebruikt alleen `uuid.v4()`.
 
 ## Gedrag van deze eerste versie
+
+### CloudKit: configuratie voorbereid, synchronisatie nog niet ingebouwd
+
+De Apple Developer-configuratie is op 16 september 2026 in de browser gecontroleerd:
+team `4245X522US`, Bundle ID `nl.sem.workouttracker`, iCloud met CloudKit,
+Push Notifications en de gekoppelde container `iCloud.nl.sem.workouttracker`.
+Het Xcode-project bevat dezelfde container, aparte Debug/Release-entitlements en
+de achtergrondmodus `remote-notification`. Release/TestFlight gebruikt `Production`.
+
+Dit zijn alleen buildinstellingen: de huidige app schrijft nog geen workouts naar
+CloudKit. Voor synchronisatie zijn nog een native opslag-/synchronisatielaag,
+migratie van bestaande data en tests op twee iPhones nodig. JSON-import en -export
+blijven onderdeel van de app. Maak het CloudKit-schema eerst in Development en
+publiceer het geteste schema naar Production voordat je CloudKit via TestFlight test.
+Gebruik een nieuw App Store Connect-provisioningprofiel dat deze capabilities en
+container bevat. Een oud profiel van vóór de wijziging is niet voldoende.
+
+[Apple: CloudKit-schema publiceren](https://developer.apple.com/documentation/cloudkit/deploying-an-icloud-container-s-schema).
+
+### Huidige functies
 
 - Alle webcode, stijlen en afbeeldingen zijn lokaal in de app opgenomen.
 - Native builds registreren geen serviceworker; updates komen via TestFlight/App Store.

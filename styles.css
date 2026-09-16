@@ -1002,6 +1002,8 @@ textarea {
 .set-modal input,
 .set-modal textarea {
   display: block;
+  line-height: 1.25;
+  height: calc(1.25em + 30px);
   width: 100%;
   inline-size: 100%;
   min-width: 0;
@@ -1009,6 +1011,38 @@ textarea {
   max-width: 100%;
   max-inline-size: 100%;
   justify-self: stretch;
+}
+
+.set-modal #set-notes {
+  min-height: 0;
+  resize: none;
+}
+
+.set-extra {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+}
+
+.set-extra > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.set-extra > summary::-webkit-details-marker {
+  display: none;
+}
+
+.set-extra[open] > summary .chevron {
+  transform: rotate(90deg);
+}
+
+.set-extra-fields {
+  padding-top: 4px;
 }
 
 @supports (-webkit-touch-callout: none) {

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+const css = (await readFile(new URL('../styles.css', import.meta.url), 'utf8')).replaceAll('\r\n', '\n');
 
 function rule(selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

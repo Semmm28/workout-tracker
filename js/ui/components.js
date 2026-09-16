@@ -266,35 +266,40 @@ export function renderModal() {
                 <input id="set-reps" name="reps" type="number" inputmode="numeric" step="1" min="0" required placeholder="0" value="${escapeAttr(entry.reps || '')}" />
               </div>
             </div>
-            <div class="two-col">
-              <div class="field-group">
-                <label for="set-date">Date</label>
-                <input id="set-date" name="date" type="date" value="${escapeAttr(toInputDate(entry.loggedAt))}" />
+            <details class="set-extra">
+              <summary>Extra <span class="chevron" aria-hidden="true">${icon.chevron}</span></summary>
+              <div class="form-grid set-extra-fields">
+                <div class="two-col">
+                  <div class="field-group">
+                    <label for="set-date">Date</label>
+                    <input id="set-date" name="date" type="date" value="${escapeAttr(toInputDate(entry.loggedAt))}" />
+                  </div>
+                  <div class="field-group">
+                    <label for="set-time">Time</label>
+                    <input id="set-time" name="time" type="time" value="${escapeAttr(toInputTime(entry.loggedAt))}" />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label for="set-rpe">RPE</label>
+                  <input
+                    id="set-rpe"
+                    name="rpe"
+                    type="number"
+                    inputmode="decimal"
+                    step="0.5"
+                    min="1"
+                    max="10"
+                    placeholder="Optional (1–10)"
+                    value="${escapeAttr(entry.rpe ?? '')}"
+                  />
+                </div>
+                <div class="field-group">
+                  <label for="set-notes">Notes</label>
+                  <textarea id="set-notes" name="notes" rows="1" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>
+                </div>
+                <div class="helper-text">Only weight and repetitions are required. RPE and notes remain optional.</div>
               </div>
-              <div class="field-group">
-                <label for="set-time">Time</label>
-                <input id="set-time" name="time" type="time" value="${escapeAttr(toInputTime(entry.loggedAt))}" />
-              </div>
-            </div>
-            <div class="field-group">
-              <label for="set-rpe">RPE</label>
-              <input
-                id="set-rpe"
-                name="rpe"
-                type="number"
-                inputmode="decimal"
-                step="0.5"
-                min="1"
-                max="10"
-                placeholder="Optional (1–10)"
-                value="${escapeAttr(entry.rpe ?? '')}"
-              />
-            </div>
-            <div class="field-group">
-              <label for="set-notes">Notes</label>
-              <textarea id="set-notes" name="notes" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>
-            </div>
-            <div class="helper-text">Only weight and repetitions are required. RPE and notes remain optional.</div>
+            </details>
           </div>
           <div class="set-modal-bottom-actions">
             ${renderSetSaveButton('bottom')}

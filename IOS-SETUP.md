@@ -19,6 +19,11 @@ Het resultaat `WorkoutLog-simulator.zip` is alleen geschikt voor een iOS Simulat
 op een Mac. Het is **geen installeerbare IPA voor je iPhone**. De belangrijkste
 uitkomst is dat de native compilatie succesvol is; bekijk bij fouten de logs.
 
+Op 16 september 2026 is deze controlebuild succesvol uitgevoerd met Xcode 26.6
+op Codemagic: alle 56 tests geslaagd, native compilatie geslaagd en
+`WorkoutLog-simulator.zip` aangemaakt. [Bekijk build 1](https://codemagic.io/app/6aa9f51e50714ad0defcbcb7/build/6aa9fa73bb36a18bce7d2428).
+Deze controle test nog geen installatie of gebruik op een echte iPhone.
+
 ## Daarna: een IPA en TestFlight
 
 De voorbereide identifiers zijn:
@@ -49,10 +54,6 @@ Voor vrienden gebruik je externe testers. Dien de build in voor beta-review en
 deel na goedkeuring de uitnodiging. Exporteer niet met 'TestFlight Internal Only',
 want zo'n build kan niet naar externe testers. Elke TestFlight-build vervalt
 90 dagen na uploaden.
-
-Als Codemagic bij het laden van alle workflows toch om de nog ontbrekende
-Apple-koppeling vraagt, configureer eerst de koppeling `Codemagic`; kies vervolgens
-de controlebuild. Er zijn voor die controlebuild zelf geen signing identities nodig.
 
 ## Ontwikkelen en controleren
 

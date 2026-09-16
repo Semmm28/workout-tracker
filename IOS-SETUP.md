@@ -24,6 +24,10 @@ op Codemagic: alle 56 tests geslaagd, native compilatie geslaagd en
 `WorkoutLog-simulator.zip` aangemaakt. [Bekijk build 1](https://codemagic.io/app/6aa9f51e50714ad0defcbcb7/build/6aa9fa73bb36a18bce7d2428).
 Deze controle test nog geen installatie of gebruik op een echte iPhone.
 
+Ook de bijgewerkte configuratie met CloudKit-entitlements is succesvol gecompileerd
+in [controlebuild 2](https://codemagic.io/app/6aa9f51e50714ad0defcbcb7/build/6aaa7cacc7f81d267702b310)
+op commit `f2e4824`.
+
 ## Daarna: een IPA en TestFlight
 
 De voorbereide identifiers zijn:
@@ -39,10 +43,11 @@ De voorbereide identifiers zijn:
 De Bundle ID is geregistreerd bij Apple. Het apprecord is aangemaakt met naam
 Workout Log, SKU `workout-log-ios` en Apple ID `6812724816`.
 [Open TestFlight](https://appstoreconnect.apple.com/teams/71cf442b-6b28-4bd1-a103-e254d2d06fc3/apps/6812724816/testflight).
-Maak een App Store Connect API-sleutel en voeg deze in Codemagic toe onder
-**Team settings > Team integrations > Developer Portal**, met de naam `Codemagic`.
-Voeg ook een **Apple Distribution**-certificaat en een bijpassend
-**App Store Connect**-provisioningprofiel toe aan Codemagic's Code signing identities.
+De App Store Connect Team API-koppeling `Codemagic` is ingesteld met de rol
+**App Manager**. Onder Code signing identities staan het **Apple Distribution**-
+certificaat `workout_log_distribution` en het **App Store**-provisioningprofiel
+`workout_log_app_store` (Apple-naam: `Workout Log App Store`). Codemagic bevestigt
+dat het profiel bij het certificaat past. Beide verlopen op 16 september 2027.
 Bewaar `.p8`, `.p12` en `.mobileprovision`-bestanden buiten GitHub.
 
 Start daarna **iOS - IPA en upload naar TestFlight** (`ios-testflight`). De workflow

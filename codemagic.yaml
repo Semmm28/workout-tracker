@@ -63,9 +63,21 @@ workflows:
         script: xcode-project use-profiles
       - name: Archive and export a signed IPA
         script: |
-          xcode-project build-ipa \
+          set -euo pipefail
+          if xcode-project build-ipa \
             --project ios/App/App.xcodeproj \
-            --scheme App
+            --scheme App; then
+            exit 0
+          else
+            build_status=$?
+            for build_log in /tmp/xcodebuild_logs/*.log; do
+              [ -f "$build_log" ] || continue
+              echo "Xcode failure details: $build_log"
+              grep -n -E 'error:|fatal error:|Error Domain|ARCHIVE FAILED|provisioning profile' "$build_log" || true
+              tail -n 80 "$build_log"
+            done
+            exit "$build_status"
+          fi
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

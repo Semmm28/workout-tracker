@@ -101,9 +101,19 @@ export function createController({ render, navigate, refreshApp }) {
     URL.revokeObjectURL(url);
   }
 
-  function exportAllData() {
-    downloadJson(`workout-tracker-export-${todayInputValue()}.json`, buildExportPayload());
-    showToast('Data exported');
+  async function exportAllData() {
+    const filename = `workout-tracker-export-${todayInputValue()}.json`;
+    try {
+      if (globalThis.workoutNative?.exportJson) {
+        await globalThis.workoutNative.exportJson(filename, buildExportPayload());
+      } else {
+        downloadJson(filename, buildExportPayload());
+        showToast('Data exported');
+      }
+    } catch (error) {
+      console.warn('Data export failed or was cancelled:', error);
+      showToast('Export niet voltooid. Je gegevens staan nog in de app.');
+    }
   }
 
   function wireInputs() {

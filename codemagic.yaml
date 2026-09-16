@@ -1,0 +1,77 @@
+# Select the ios-app branch in Codemagic. Both workflows are started manually.
+# ios-check needs no Apple account integration or signing credentials.
+workflows:
+  ios-check:
+    name: iOS - controlebuild zonder Apple-koppeling
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Run application tests
+        script: npm test
+      - name: Bundle web assets and sync the iOS project
+        script: npm run ios:sync
+      - name: Validate iOS configuration
+        script: npm run check:ios
+      - name: Compile for iOS Simulator
+        script: |
+          set -euo pipefail
+          mkdir -p build
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee build/xcode-simulator.log
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/DerivedData/Build/Products/Debug-iphonesimulator/App.app \
+            build/WorkoutLog-simulator.zip
+    artifacts:
+      - build/WorkoutLog-simulator.zip
+      - build/xcode-simulator.log
+
+  ios-testflight:
+    name: iOS - IPA en upload naar TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    # Create this Apple Developer Portal integration in Codemagic first.
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      node: 22
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: nl.sem.workouttracker
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Run application tests
+        script: npm test
+      - name: Bundle web assets and sync the iOS project
+        script: npm run ios:sync
+      - name: Validate iOS configuration
+        script: npm run check:ios
+      - name: Apply uploaded distribution certificate and App Store profile
+        script: xcode-project use-profiles
+      - name: Archive and export a signed IPA
+        script: |
+          xcode-project build-ipa \
+            --project ios/App/App.xcodeproj \
+            --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload only. Set up internal/external testers and beta review in Apple.
+        submit_to_testflight: false
+        submit_to_app_store: false

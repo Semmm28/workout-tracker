@@ -1,0 +1,9 @@
+{
+  "appId": "nl.sem.workouttracker",
+  "appName": "Workout Log",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#090a0d"
+  }
+}

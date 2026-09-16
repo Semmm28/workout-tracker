@@ -21,6 +21,7 @@ export function setupVisualViewportTracking() {
 }
 
 export function setupServiceWorkerAutoRefresh() {
+  if (globalThis.Capacitor?.isNativePlatform()) return;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (isRefreshingApp) return;
@@ -30,6 +31,10 @@ export function setupServiceWorkerAutoRefresh() {
 }
 
 export async function refreshApp(showToast) {
+  if (globalThis.Capacitor?.isNativePlatform()) {
+    showToast('Updates installeer je via TestFlight of de App Store.');
+    return;
+  }
   if (isRefreshingApp) return;
 
   try {
@@ -60,6 +65,7 @@ export async function refreshApp(showToast) {
 }
 
 export async function registerServiceWorker() {
+  if (globalThis.Capacitor?.isNativePlatform()) return;
   if (!('serviceWorker' in navigator)) return;
   try {
     serviceWorkerRegistration = await navigator.serviceWorker.register('./sw.js');

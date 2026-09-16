@@ -1,6 +1,7 @@
 import { renderHeader } from '../ui/components.js';
 
 export function renderSettingsScreen() {
+  const isNative = globalThis.Capacitor?.isNativePlatform() ?? false;
   return `
     <section class="screen-shell">
       <div class="screen-top fade-in">
@@ -33,10 +34,10 @@ export function renderSettingsScreen() {
           <section class="chart-card slide-up">
             <div class="settings-stack">
               <div class="settings-copy">
-                <h3>App vernieuwen</h3>
-                <p class="meta-text">Controleer op een nieuwe versie en herlaad de app zonder je lokaal opgeslagen data te verwijderen.</p>
+                <h3>${isNative ? 'App-updates' : 'App vernieuwen'}</h3>
+                <p class="meta-text">${isNative ? 'Nieuwe versies installeer je via TestFlight of de App Store.' : 'Controleer op een nieuwe versie en herlaad de app zonder je lokaal opgeslagen data te verwijderen.'}</p>
               </div>
-              <button class="secondary-btn" data-action="refresh-app">Refresh app</button>
+              ${isNative ? '' : '<button class="secondary-btn" data-action="refresh-app">Refresh app</button>'}
             </div>
           </section>
         </div>

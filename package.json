@@ -1,9 +1,32 @@
 {
   "name": "workout-log-pwa",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "check": "node --test tests/module-graph.test.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node scripts/build-native.mjs",
+    "ios:sync": "npm run build && node scripts/prepare-ios.mjs && cap sync ios",
+    "check:ios": "node scripts/check-ios.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.2",
+    "@capacitor/filesystem": "8.1.3",
+    "@capacitor/ios": "8.5.2",
+    "@capacitor/share": "8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2",
+    "esbuild": "0.28.2",
+    "yaml": "2.9.1"
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
   }
 }

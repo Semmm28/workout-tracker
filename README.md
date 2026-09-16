@@ -1,5 +1,9 @@
 # Workout Log PWA
 
+The `ios-app` branch also includes a Capacitor iOS project and manual Codemagic
+workflows. See [IOS-SETUP.md](IOS-SETUP.md) to run the first cloud build from Windows.
+The existing PWA is maintained on `main`.
+
 A browser-based, offline-first workout tracker optimized for iPhone Safari and Home Screen installation.
 
 ## What is included

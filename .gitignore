@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.DS_Store
+.env
+.env.*
+*.p8
+*.p12
+*.mobileprovision
+*.ipa
+*.xcarchive/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/App/CapApp-SPM/.build/
+ios/App/CapApp-SPM/.swiftpm/
+**/xcuserdata/

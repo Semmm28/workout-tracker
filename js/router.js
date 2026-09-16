@@ -24,9 +24,24 @@ export function deriveRouteFromHash(hash = location.hash) {
   return { screen: 'brands', brandId: null, machineId: null };
 }
 
+export function navigationDepth() {
+  const depth = history.state?.workoutNavigationDepth;
+  return Number.isSafeInteger(depth) && depth >= 0 ? depth : 0;
+}
+
+export function parentRoute(route) {
+  if (route.screen === 'brands') return null;
+  if (route.screen === 'machineDetail') {
+    return { screen: 'machines', brandId: route.brandId, machineId: null };
+  }
+  return { screen: 'brands', brandId: null, machineId: null };
+}
+
 export function writeRoute(route, replace = false) {
   const url = new URL(location.href);
   url.hash = routeToHash(route);
-  if (replace) history.replaceState(route, '', url);
-  else history.pushState(route, '', url);
+  const replaceEntry = replace || url.hash === location.hash;
+  const entry = { ...route, workoutNavigationDepth: navigationDepth() + (replaceEntry ? 0 : 1) };
+  if (replaceEntry) history.replaceState(entry, '', url);
+  else history.pushState(entry, '', url);
 }

@@ -8,9 +8,10 @@ import {
   setupVisualViewportTracking,
 } from './js/pwa.js';
 import { renderAppMarkup, renderLoadingMarkup } from './js/render.js';
-import { deriveRouteFromHash, writeRoute } from './js/router.js';
+import { deriveRouteFromHash, navigationDepth, parentRoute, writeRoute } from './js/router.js';
 import { state } from './js/state.js';
 import { closeSwipeRows } from './js/ui/gestures.js';
+import { setupEdgeBackGesture } from './js/ui/edge-back.js';
 
 const app = document.getElementById('app');
 
@@ -34,9 +35,31 @@ function navigate(route, replace = false) {
   render();
 }
 
+function canGoBack() {
+  return state.ready && Boolean(state.confirmSheet || state.modal || state.menuOpen || navigationDepth() || parentRoute(state.route));
+}
+
+function goBack() {
+  if (state.confirmSheet) state.confirmSheet = null;
+  else if (state.modal) state.modal = null;
+  else if (state.menuOpen) state.menuOpen = false;
+  else {
+    if (navigationDepth() > 0) {
+      history.back();
+      return;
+    }
+    const parent = parentRoute(state.route);
+    if (parent) navigate(parent, true);
+    return;
+  }
+  closeSwipeRows();
+  render();
+}
+
 controller = createController({
   render,
   navigate,
+  goBack,
   refreshApp: () => refreshApp(controller.showToast),
 });
 
@@ -44,8 +67,13 @@ async function init() {
   controller.attachEventDelegation();
   setupServiceWorkerAutoRefresh();
   setupVisualViewportTracking();
+  setupEdgeBackGesture({ canGoBack, goBack });
   window.addEventListener('popstate', () => {
     state.route = deriveRouteFromHash();
+    state.modal = null;
+    state.confirmSheet = null;
+    state.menuOpen = false;
+    closeSwipeRows();
     render();
   });
 
@@ -53,7 +81,7 @@ async function init() {
   await loadState();
   state.route = deriveRouteFromHash();
   state.ready = true;
-  if (!location.hash) navigate({ screen: 'brands', brandId: null, machineId: null }, true);
+  writeRoute(state.route, true);
   render();
   registerServiceWorker();
 }

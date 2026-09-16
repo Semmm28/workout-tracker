@@ -26,7 +26,7 @@ import {
   todayInputValue,
 } from './utils.js';
 
-export function createController({ render, navigate, refreshApp }) {
+export function createController({ render, navigate, goBack, refreshApp }) {
   let toastTimer = null;
 
   function openBrandModal(mode, data = null) {
@@ -163,6 +163,10 @@ export function createController({ render, navigate, refreshApp }) {
 
     const setForm = document.getElementById('set-form');
     if (setForm) {
+      setForm.addEventListener('invalid', (event) => {
+        const extra = event.target.closest('details');
+        if (extra) extra.open = true;
+      }, true);
       setForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const form = new FormData(setForm);
@@ -266,8 +270,7 @@ export function createController({ render, navigate, refreshApp }) {
       if (action === 'close-sheet') return closeConfirmSheet();
       if (action === 'undo-toast' && state.toast?.undo) return state.toast.undo();
 
-      if (action === 'go-brands') return navigate({ screen: 'brands', brandId: null, machineId: null });
-      if (action === 'go-machines') return navigate({ screen: 'machines', brandId: state.route.brandId, machineId: null });
+      if (action === 'go-brands' || action === 'go-machines') return goBack();
       if (action === 'nav-workouts') return navigate({ screen: 'brands', brandId: null, machineId: null });
       if (action === 'nav-recent-activity') return navigate({ screen: 'recentActivity', brandId: null, machineId: null });
       if (action === 'nav-bodyweight') return navigate({ screen: 'bodyweight', brandId: null, machineId: null });

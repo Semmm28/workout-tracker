@@ -1,4 +1,4 @@
-import { bulkPut } from './database.js';
+import { writeChanges } from './database.js';
 import { loadState } from './data.js';
 import { state } from './state.js';
 import { clone, nowIso } from './utils.js';
@@ -8,14 +8,14 @@ export function buildExportPayload() {
     version: 1,
     exportedAt: nowIso(),
     brands: clone(state.brands),
-    machines: clone(state.machines),
-    sets: clone(state.sets),
+    machines: clone([...state.machines, ...(state.orphaned?.machines || [])]),
+    sets: clone([...state.sets, ...(state.orphaned?.sets || [])]),
     bodyweights: clone(state.bodyweights),
   };
 }
 
 export function isValidImportRecord(record, type) {
-  if (!record || typeof record !== 'object') return false;
+  if (!record || typeof record !== 'object' || typeof record.id !== 'string' || !record.id) return false;
   if (type === 'brands') return Boolean(record.id && record.name);
   if (type === 'machines') return Boolean(record.id && record.brandId && record.name);
   if (type === 'sets') {
@@ -49,10 +49,8 @@ export async function importDataFile(file) {
     + sanitized.bodyweights.length;
 
   if (!total) return 0;
-  if (sanitized.brands.length) await bulkPut('brands', sanitized.brands);
-  if (sanitized.machines.length) await bulkPut('machines', sanitized.machines);
-  if (sanitized.sets.length) await bulkPut('sets', sanitized.sets);
-  if (sanitized.bodyweights.length) await bulkPut('bodyweights', sanitized.bodyweights);
+  // Import is an explicit local edit, including when it restores a deleted ID.
+  await writeChanges(Object.entries(sanitized).flatMap(([kind, records]) => records.map((record) => ({ kind, id: record.id, record }))));
   await loadState();
   return total;
 }

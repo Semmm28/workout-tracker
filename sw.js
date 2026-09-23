@@ -1,11 +1,13 @@
 const CACHE_PREFIX = 'workout-log-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v19`;
+const CACHE_NAME = `${CACHE_PREFIX}v20`;
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './js/constants.js',
+  './js/cloud-sync.js',
+  './js/sync-model.js',
   './js/controller.js',
   './js/data-transfer.js',
   './js/data.js',

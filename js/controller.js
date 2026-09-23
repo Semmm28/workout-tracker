@@ -1,4 +1,5 @@
 import { CHART_SERIES_OPTIONS } from './constants.js';
+import { setCloudEnabled, syncCloud } from './cloud-sync.js';
 import { buildExportPayload, importDataFile } from './data-transfer.js';
 import { loadState } from './data.js';
 import { deleteById, saveRecord } from './database.js';
@@ -286,6 +287,13 @@ export function createController({ render, navigate, goBack, refreshApp }) {
       if (action === 'export-data') return exportAllData();
       if (action === 'trigger-import') return document.getElementById('import-file-input')?.click();
       if (action === 'refresh-app') return refreshApp();
+      if (action === 'cloud-enable') return openConfirmSheet({
+        title: 'Synchroniseren met iCloud?',
+        message: 'Je merken, apparaten, sets en gewichtsmetingen worden samengevoegd met je persoonlijke iCloud. Andere gebruikers kunnen ze niet bekijken. JSON-export blijft beschikbaar.',
+        confirm: async () => { closeConfirmSheet(); await setCloudEnabled(true); },
+      });
+      if (action === 'cloud-disable') return setCloudEnabled(false);
+      if (action === 'cloud-sync') return syncCloud(true);
       if (action === 'set-chart-series-mode' && CHART_SERIES_OPTIONS[id]) {
         state.preferences.chartSeriesMode = id;
         persistChartSeriesMode(id);

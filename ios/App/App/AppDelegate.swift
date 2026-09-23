@@ -7,7 +7,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        if #available(iOS 17.0, *) {
+            Task {
+                await WorkoutCloudStore.shared.resumeIfEnabled()
+                let status = await WorkoutCloudStore.shared.status()
+                if status["enabled"] as? Bool == true {
+                    await MainActor.run { application.registerForRemoteNotifications() }
+                }
+            }
+        }
         return true
     }
 
@@ -31,6 +39,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+    }
+
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        guard #available(iOS 17.0, *) else { completionHandler(.noData); return }
+        Task {
+            let status = await WorkoutCloudStore.shared.synchronize()
+            completionHandler(status["code"] as? String == "ready" ? .newData : .noData)
+        }
     }
 
     func application(_ application: UIApplication,

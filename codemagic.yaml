@@ -13,6 +13,11 @@ workflows:
         script: npm ci
       - name: Run application tests
         script: npm test
+      - name: Test native sync conflict resolution
+        script: |
+          mkdir -p build
+          swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
+          build/cloud-model-tests
       - name: Bundle web assets and sync the iOS project
         script: npm run ios:sync
       - name: Validate iOS configuration
@@ -55,6 +60,11 @@ workflows:
         script: npm ci
       - name: Run application tests
         script: npm test
+      - name: Test native sync conflict resolution
+        script: |
+          mkdir -p build
+          swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
+          build/cloud-model-tests
       - name: Bundle web assets and sync the iOS project
         script: npm run ios:sync
       - name: Validate iOS configuration

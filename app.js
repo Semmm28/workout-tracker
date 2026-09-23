@@ -1,6 +1,7 @@
 import { createController } from './js/controller.js';
 import { loadState } from './js/data.js';
 import { openDb } from './js/database.js';
+import { initializeCloudSync } from './js/cloud-sync.js';
 import {
   refreshApp,
   registerServiceWorker,
@@ -84,6 +85,11 @@ async function init() {
   writeRoute(state.route, true);
   render();
   registerServiceWorker();
+  void initializeCloudSync(async (dataChanged) => {
+    if (dataChanged) await loadState();
+    // Never replace a form while the user is typing because sync completed.
+    if (!state.modal && !state.confirmSheet && (dataChanged || state.route.screen === 'settings')) render();
+  });
 }
 
 init().catch((error) => {

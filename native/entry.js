@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { createNativeExporter } from './export.js';
@@ -7,6 +7,7 @@ import { createNativeExporter } from './export.js';
 if (Capacitor.isNativePlatform()) {
   globalThis.workoutNative = {
     exportJson: createNativeExporter({ Filesystem, Share, Directory, Encoding }),
+    cloud: registerPlugin('WorkoutCloud'),
   };
 }
 

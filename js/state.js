@@ -4,6 +4,7 @@ export const state = {
   machines: [],
   sets: [],
   bodyweights: [],
+  orphaned: { machines: [], sets: [] },
   route: { screen: 'brands', brandId: null, machineId: null },
   search: { brands: '', machines: '' },
   reorder: { brands: false, machines: false },

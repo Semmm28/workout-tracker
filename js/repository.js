@@ -1,4 +1,4 @@
-import { bulkPut, saveRecord, txMulti } from './database.js';
+import { bulkPut, saveRecord, writeChanges } from './database.js';
 import { loadState } from './data.js';
 import { state } from './state.js';
 import { clone, nowIso, uid } from './utils.js';
@@ -11,40 +11,29 @@ export function getMachineCascade(brandId) {
 }
 
 export async function deleteBrandCascade(brandId) {
-  const snapshot = {
-    brands: clone(state.brands),
-    machines: clone(state.machines),
-    sets: clone(state.sets),
-  };
   const { machines, sets } = getMachineCascade(brandId);
-  await txMulti(['brands', 'machines', 'sets'], 'readwrite', (stores) => {
-    stores.brands.delete(brandId);
-    machines.forEach((machine) => stores.machines.delete(machine.id));
-    sets.forEach((entry) => stores.sets.delete(entry.id));
-  });
+  const snapshot = {
+    brands: clone(state.brands.filter((brand) => brand.id === brandId)),
+    machines: clone(machines),
+    sets: clone(sets),
+  };
+  await writeChanges(Object.entries(snapshot).flatMap(([kind, records]) => records.map(({ id }) => ({ kind, id, deleted: true }))));
   await loadState();
   return snapshot;
 }
 
 export async function deleteMachineCascade(machineId) {
   const snapshot = {
-    machines: clone(state.machines),
-    sets: clone(state.sets),
+    machines: clone(state.machines.filter((machine) => machine.id === machineId)),
+    sets: clone(state.sets.filter((entry) => entry.machineId === machineId)),
   };
-  const sets = state.sets.filter((entry) => entry.machineId === machineId);
-  await txMulti(['machines', 'sets'], 'readwrite', (stores) => {
-    stores.machines.delete(machineId);
-    sets.forEach((entry) => stores.sets.delete(entry.id));
-  });
+  await writeChanges(Object.entries(snapshot).flatMap(([kind, records]) => records.map(({ id }) => ({ kind, id, deleted: true }))));
   await loadState();
   return snapshot;
 }
 
 export async function restoreSnapshot(snapshot) {
-  if (snapshot.brands?.length) await bulkPut('brands', snapshot.brands);
-  if (snapshot.machines?.length) await bulkPut('machines', snapshot.machines);
-  if (snapshot.sets?.length) await bulkPut('sets', snapshot.sets);
-  if (snapshot.bodyweights?.length) await bulkPut('bodyweights', snapshot.bodyweights);
+  await writeChanges(Object.entries(snapshot).flatMap(([kind, records]) => records.map((record) => ({ kind, id: record.id, record }))));
   await loadState();
 }
 

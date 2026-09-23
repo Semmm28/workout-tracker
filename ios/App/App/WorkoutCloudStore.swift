@@ -28,6 +28,10 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
     private var diskFailed = false
     private var syncing = false
 
+    private var sendsPaused: Bool {
+        ["quota", "schema", "record-too-large", "storage", "remote-reset", "restricted", "account-changed", "no-account", "error"].contains(problem ?? "")
+    }
+
     init() {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WorkoutCloud", isDirectory: true)
@@ -110,6 +114,9 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
     private func recordID(_ name: String) -> CKRecord.ID { CKRecord.ID(recordName: name, zoneID: Self.zoneID) }
 
     private func queueDirty(on engine: CKSyncEngine) {
+        // CKSyncEngine retries transient network failures itself. Permanent
+        // failures wait for a foreground/manual retry instead of a tight loop.
+        guard !sendsPaused, replica.blocked == nil else { return }
         let changes = replica.dirty.keys.map { CKSyncEngine.PendingRecordZoneChange.saveRecord(recordID($0)) }
         if !changes.isEmpty { engine.state.add(pendingRecordZoneChanges: changes) }
     }
@@ -162,16 +169,19 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
         guard let data = changes.data(using: .utf8) else { throw WorkoutCloudError(code: "schema") }
         let incoming = try JSONDecoder().decode([WorkoutEnvelope].self, from: data)
         var next = replica
+        var edited = false
         for entry in incoming {
             try entry.validate()
             let name = entry.recordName
             if entry.isNewer(than: next.records[name]) {
+                edited = true
                 next.records[name] = entry
                 next.dirty[name] = entry.revision
             }
         }
         // This acknowledgement means durable native storage, not cloud upload.
         if !incoming.isEmpty { try commit(next) }
+        if edited && problem == "record-too-large" { problem = nil }
         do {
             _ = try await account(expected: owner)
             try startEngine()
@@ -244,7 +254,7 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
     }
 
     func nextRecordZoneChangeBatch(_ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine) async -> CKSyncEngine.RecordZoneChangeBatch? {
-        guard engine === syncEngine, replica.enabled, replica.blocked == nil else { return nil }
+        guard engine === syncEngine, replica.enabled, replica.blocked == nil, !sendsPaused else { return nil }
         do {
             _ = try await account(expected: replica.owner)
             guard engine === syncEngine else { return nil }

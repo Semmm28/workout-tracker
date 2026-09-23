@@ -16,10 +16,10 @@ export function buildExportPayload() {
 
 export function isValidImportRecord(record, type) {
   if (!record || typeof record !== 'object' || typeof record.id !== 'string' || !record.id) return false;
-  if (type === 'brands') return Boolean(record.id && record.name);
-  if (type === 'machines') return Boolean(record.id && record.brandId && record.name);
+  if (type === 'brands') return typeof record.name === 'string' && Boolean(record.name);
+  if (type === 'machines') return typeof record.brandId === 'string' && typeof record.name === 'string' && Boolean(record.brandId && record.name);
   if (type === 'sets') {
-    return Boolean(record.id && record.machineId && record.loggedAt)
+    return typeof record.machineId === 'string' && Boolean(record.machineId && record.loggedAt)
       && Number.isFinite(Number(record.weight))
       && Number.isFinite(Number(record.reps));
   }

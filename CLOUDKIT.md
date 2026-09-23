@@ -14,7 +14,9 @@ or separate server is needed.
 - The encrypted envelope contains schema version, entity type, ID, a revision,
   deletion flag and the JSON for that single entity. No workout data is logged.
 - Deploy this schema from Development to Production before TestFlight testing.
-  No query indexes or public database permissions are needed.
+  No query indexes or public database permissions are needed. The deployed
+  WorkoutEntry type has no grants for `_world` or `_icloud`; private database
+  access is scoped to the iCloud owner. Capacitor payload logging is disabled.
 
 IndexedDB v3 atomically writes entity changes and `syncRecords`. The retained
 journal includes tombstones and survives app/WebView termination. A native

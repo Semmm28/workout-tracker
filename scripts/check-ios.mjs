@@ -15,6 +15,11 @@ const scheme = await read('ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcsc
 const swiftPackage = await read('ios/App/CapApp-SPM/Package.swift');
 
 assert.equal(config.webDir, 'dist');
+assert.equal(config.loggingBehavior, 'none', 'Native bridge logs must not include private workout payloads.');
+for (const file of ['WorkoutEnvelope.swift', 'WorkoutCloudStore.swift', 'WorkoutCloudPlugin.swift']) {
+  assert.ok(project.includes(`${file} in Sources`), `${file} must compile into the iOS target.`);
+}
+assert.match(await read('ios/App/App/SceneDelegate.swift'), /rootViewController = WorkoutViewController\(\)/);
 assert.ok(!config.server?.url, 'Production builds must load bundled assets, not a hosted URL.');
 assert.equal(workflows['ios-testflight'].environment.ios_signing.bundle_identifier, config.appId);
 assert.equal(workflows['ios-testflight'].environment.ios_signing.distribution_type, 'app_store');

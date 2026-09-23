@@ -137,6 +137,8 @@ export function createController({ render, navigate, goBack, refreshApp }) {
           const total = await importDataFile(file);
           if (!total) showToast('No valid records found in import file');
           else showToast(`Imported ${total} record${total === 1 ? '' : 's'}`);
+        } catch {
+          showToast('Import niet voltooid. Controleer of dit een geldig JSON-bestand van Workout Log is.');
         } finally {
           event.target.value = '';
         }
@@ -289,6 +291,9 @@ export function createController({ render, navigate, goBack, refreshApp }) {
       if (action === 'refresh-app') return refreshApp();
       if (action === 'cloud-enable') return openConfirmSheet({
         title: 'Synchroniseren met iCloud?',
+        confirmLabel: 'Inschakelen',
+        cancelLabel: 'Annuleren',
+        destructive: false,
         message: 'Je merken, apparaten, sets en gewichtsmetingen worden samengevoegd met je persoonlijke iCloud. Andere gebruikers kunnen ze niet bekijken. JSON-export blijft beschikbaar.',
         confirm: async () => { closeConfirmSheet(); await setCloudEnabled(true); },
       });

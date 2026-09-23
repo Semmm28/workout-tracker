@@ -324,8 +324,8 @@ export function renderConfirmSheet() {
           <button class="round-btn" data-action="close-sheet" aria-label="Close">${icon.close}</button>
         </div>
         <div class="sheet-actions">
-          <button class="sheet-action" data-action="close-sheet">Cancel</button>
-          <button class="sheet-action danger" data-action="confirm-sheet">Delete</button>
+          <button class="sheet-action" data-action="close-sheet">${safeText(sheet.cancelLabel || 'Cancel')}</button>
+          <button class="sheet-action ${sheet.destructive === false ? '' : 'danger'}" data-action="confirm-sheet">${safeText(sheet.confirmLabel || 'Delete')}</button>
         </div>
       </section>
     </div>

@@ -176,7 +176,7 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
             _ = try await account(expected: owner)
             try startEngine()
             if let engine { queueDirty(on: engine) }
-            problem = nil
+            if ["account-changed", "no-account"].contains(problem ?? "") { problem = nil }
         } catch { problem = code(for: error) }
         // Never expose a replica to a different locally bound account.
         let encoded = try JSONEncoder().encode(Array(replica.records.values))
@@ -300,6 +300,7 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
                 try commit(next)
                 queueDirty(on: syncEngine)
             case .sentRecordZoneChanges(let event):
+                if event.failedRecordSaves.isEmpty { problem = nil }
                 for record in event.savedRecords { try merge(record, into: &next) }
                 for failure in event.failedRecordSaves {
                     let name = failure.record.recordID.recordName

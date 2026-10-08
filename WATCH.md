@@ -23,10 +23,11 @@ older offline copy cannot resurrect a deleted set.
 
 ## Signing and release
 
-Register `nl.sem.workouttracker.watchkitapp` with Apple and provide an App Store
-distribution profile for that identifier in the same Codemagic team as
-`nl.sem.workouttracker`. No new capabilities are needed for the Watch target.
-The existing signing configuration selects matching companion profiles.
+The release workflow registers `nl.sem.workouttracker.watchkitapp` and creates
+its App Store profile through the existing Codemagic Apple integration when
+needed. It reuses the distribution certificate from `Workout Log App Store`,
+and checks the bundle identifier and certificate before installing the profile.
+No new signing certificate, private key export or Watch capabilities are needed.
 
 Run `ios-check` first. It runs JavaScript and native model tests, builds the
 simulator application, and verifies the embedded Watch app exists. Then run

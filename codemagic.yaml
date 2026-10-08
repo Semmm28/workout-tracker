@@ -74,7 +74,9 @@ workflows:
       - name: Validate iOS configuration
         script: npm run check:ios
       - name: Apply uploaded distribution certificate and App Store profile
-        script: xcode-project use-profiles
+        script: |
+          python3 scripts/prepare-watch-signing.py
+          xcode-project use-profiles
       - name: Archive and export a signed IPA
         script: |
           set -euo pipefail

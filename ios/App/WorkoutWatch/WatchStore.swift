@@ -89,7 +89,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
         do {
             let packet = try JSONDecoder().decode(WatchPacket.self, from: Data(text.utf8))
             _ = commit { try $0.receive(packet) }
-        } catch { error = "Werk Workout Log op je iPhone en Watch bij om opnieuw te synchroniseren." }
+        } catch { self.error = "Werk Workout Log op je iPhone en Watch bij om opnieuw te synchroniseren." }
     }
 
     private func sendPending() {

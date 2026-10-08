@@ -109,7 +109,7 @@ final class WorkoutWatchBridge: NSObject, WCSessionDelegate {
 public class WorkoutWatchPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "WorkoutWatchPlugin"
     public let jsName = "WorkoutWatch"
-    public let pluginMethods = [CAPPluginMethod(name: "pending", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "publish", returnType: CAPPluginReturnPromise)]
+    public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "pending", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "publish", returnType: CAPPluginReturnPromise)]
     private var observer: NSObjectProtocol?
     public override func load() {
         DispatchQueue.main.async { WorkoutWatchBridge.shared.start() }

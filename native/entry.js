@@ -8,6 +8,7 @@ if (Capacitor.isNativePlatform()) {
   globalThis.workoutNative = {
     exportJson: createNativeExporter({ Filesystem, Share, Directory, Encoding }),
     cloud: registerPlugin('WorkoutCloud'),
+    watch: registerPlugin('WorkoutWatch'),
   };
 }
 

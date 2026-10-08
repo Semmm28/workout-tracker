@@ -7,6 +7,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        WorkoutWatchBridge.shared.start()
         if #available(iOS 17.0, *) {
             Task {
                 await WorkoutCloudStore.shared.resumeIfEnabled()

@@ -2,6 +2,7 @@ import { createController } from './js/controller.js';
 import { loadState } from './js/data.js';
 import { openDb } from './js/database.js';
 import { initializeCloudSync } from './js/cloud-sync.js';
+import { initializeWatchSync, scheduleWatchSync } from './js/watch-sync.js';
 import {
   refreshApp,
   registerServiceWorker,
@@ -9,12 +10,15 @@ import {
   setupVisualViewportTracking,
 } from './js/pwa.js';
 import { renderAppMarkup, renderLoadingMarkup } from './js/render.js';
-import { deriveRouteFromHash, navigationDepth, parentRoute, writeRoute } from './js/router.js';
+import { deriveRouteFromHash, navigationDepth, parentRoute, routeToHash, writeRoute } from './js/router.js';
 import { state } from './js/state.js';
 import { closeSwipeRows } from './js/ui/gestures.js';
 import { setupEdgeBackGesture } from './js/ui/edge-back.js';
+import { createNavigationTransition } from './js/ui/navigation-transition.js';
 
 const app = document.getElementById('app');
+const transition = createNavigationTransition(app);
+let lastDepth = navigationDepth();
 
 let controller;
 
@@ -28,12 +32,14 @@ function render() {
   controller.wireRenderedUi();
 }
 
-function navigate(route, replace = false) {
+function navigate(route, replace = false, direction = 'forward') {
+  const changed = routeToHash(route) !== routeToHash(state.route);
   state.route = route;
   state.menuOpen = false;
   writeRoute(route, replace);
+  lastDepth = navigationDepth();
   closeSwipeRows();
-  render();
+  transition(render, changed ? direction : null);
 }
 
 function canGoBack() {
@@ -50,7 +56,7 @@ function goBack() {
       return;
     }
     const parent = parentRoute(state.route);
-    if (parent) navigate(parent, true);
+    if (parent) navigate(parent, true, 'back');
     return;
   }
   closeSwipeRows();
@@ -70,12 +76,14 @@ async function init() {
   setupVisualViewportTracking();
   setupEdgeBackGesture({ canGoBack, goBack });
   window.addEventListener('popstate', () => {
+    const direction = navigationDepth() > lastDepth ? 'forward' : 'back';
+    lastDepth = navigationDepth();
     state.route = deriveRouteFromHash();
     state.modal = null;
     state.confirmSheet = null;
     state.menuOpen = false;
     closeSwipeRows();
-    render();
+    transition(render, direction);
   });
 
   await openDb();
@@ -83,10 +91,16 @@ async function init() {
   state.route = deriveRouteFromHash();
   state.ready = true;
   writeRoute(state.route, true);
+  lastDepth = navigationDepth();
   render();
   registerServiceWorker();
+  void initializeWatchSync(async () => {
+    await loadState();
+    if (!state.modal && !state.confirmSheet) render();
+  });
   void initializeCloudSync(async (dataChanged) => {
     if (dataChanged) await loadState();
+    if (dataChanged) scheduleWatchSync();
     // Never replace a form while the user is typing because sync completed.
     if (!state.modal && !state.confirmSheet && (dataChanged || state.route.screen === 'settings')) render();
   });

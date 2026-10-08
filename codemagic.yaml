@@ -18,6 +18,8 @@ workflows:
           mkdir -p build
           swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
           build/cloud-model-tests
+          swiftc ios/App/App/WorkoutEnvelope.swift ios/App/Shared/WatchModels.swift tests/native-watch-model.swift -o build/watch-model-tests
+          build/watch-model-tests
       - name: Bundle web assets and sync the iOS project
         script: npm run ios:sync
       - name: Validate iOS configuration
@@ -30,11 +32,11 @@ workflows:
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Debug \
-            -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee build/xcode-simulator.log
+          test -d build/DerivedData/Build/Products/Debug-iphonesimulator/App.app/Watch/WorkoutWatch.app
           ditto -c -k --sequesterRsrc --keepParent \
             build/DerivedData/Build/Products/Debug-iphonesimulator/App.app \
             build/WorkoutLog-simulator.zip
@@ -65,6 +67,8 @@ workflows:
           mkdir -p build
           swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
           build/cloud-model-tests
+          swiftc ios/App/App/WorkoutEnvelope.swift ios/App/Shared/WatchModels.swift tests/native-watch-model.swift -o build/watch-model-tests
+          build/watch-model-tests
       - name: Bundle web assets and sync the iOS project
         script: npm run ios:sync
       - name: Validate iOS configuration
@@ -88,6 +92,12 @@ workflows:
             done
             exit "$build_status"
           fi
+      - name: Verify the IPA includes the Watch companion
+        script: |
+          set -euo pipefail
+          for ipa in build/ios/ipa/*.ipa; do
+            unzip -l "$ipa" | grep 'Watch/WorkoutWatch.app/WorkoutWatch$'
+          done
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

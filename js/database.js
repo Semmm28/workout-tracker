@@ -150,6 +150,24 @@ export async function seedSyncJournal() {
 }
 
 export async function mergeCloudChanges(envelopes, owner) {
+  return mergeChanges(envelopes, owner || '');
+}
+
+export async function mergeWatchChanges(envelopes) {
+  for (const envelope of envelopes) {
+    const record = validateEnvelope(envelope);
+    if (envelope.kind !== 'sets' || !envelope.id.startsWith('watch-')) throw new Error('Ongeldig Watch-record');
+    if (record && (typeof record.machineId !== 'string' || !record.machineId
+      || typeof record.weight !== 'number' || record.weight < 0 || record.weight > 2000
+      || !Number.isInteger(record.reps) || record.reps < 1 || record.reps > 1000
+      || !Number.isFinite(Date.parse(record.loggedAt)))) throw new Error('Ongeldige Watch-set');
+  }
+  const changed = await mergeChanges(envelopes, null);
+  if (changed) listeners.forEach((listener) => listener());
+  return changed;
+}
+
+async function mergeChanges(envelopes, owner) {
   // Validate the entire response before starting a transaction. Unknown schema
   // versions must not advance the replica or silently discard user data.
   const values = envelopes.map(validateEnvelope);
@@ -157,7 +175,7 @@ export async function mergeCloudChanges(envelopes, owner) {
   await txMulti([...ENTITY_STORES, ...SYNC_STORES], 'readwrite', (stores, transaction) => {
     const binding = stores.syncMeta.get('owner');
     binding.onsuccess = () => {
-      if (!owner || binding.result?.value !== owner) { transaction.abort(); return; }
+      if (owner !== null && (!owner || binding.result?.value !== owner)) { transaction.abort(); return; }
       const clock = stores.syncMeta.get('clock');
       clock.onsuccess = () => {
         const time = envelopes.reduce((max, entry) => Math.max(max, revisionTime(entry.revision)), Number(clock.result?.value || 0));

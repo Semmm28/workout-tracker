@@ -12,12 +12,12 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Use a numeric x.y.z app v
 
 const path = resolve(root, 'ios/App/App.xcodeproj/project.pbxproj');
 let project = await readFile(path, 'utf8');
-project = project.replace(/PRODUCT_BUNDLE_IDENTIFIER = [^;]+;/g, `PRODUCT_BUNDLE_IDENTIFIER = ${config.appId};`);
+project = project.replace(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g, (_, id) => `PRODUCT_BUNDLE_IDENTIFIER = ${config.appId}${id.endsWith('.watchkitapp') ? '.watchkitapp' : ''};`);
 project = project.replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`);
 // The first release targets iOS 16 and later.
 project = project.replace(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g, 'IPHONEOS_DEPLOYMENT_TARGET = 16.0;');
 // Start with iPhone support; iPad remains available in compatibility mode.
-project = project.replace(/TARGETED_DEVICE_FAMILY = [^;]+;/g, 'TARGETED_DEVICE_FAMILY = 1;');
+// Watch targets keep family 4; changing it would produce an invalid embedded app.
 if (process.env.PROJECT_BUILD_NUMBER !== undefined) {
   const number = Number(process.env.PROJECT_BUILD_NUMBER);
   if (!Number.isSafeInteger(number) || number < 0) throw new Error('Invalid PROJECT_BUILD_NUMBER.');

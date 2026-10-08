@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'workout-log-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v20`;
+const CACHE_NAME = `${CACHE_PREFIX}v21`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const APP_SHELL = [
   './app.js',
   './js/constants.js',
   './js/cloud-sync.js',
+  './js/watch-sync.js',
   './js/sync-model.js',
   './js/controller.js',
   './js/data-transfer.js',
@@ -24,6 +25,7 @@ const APP_SHELL = [
   './js/state.js',
   './js/ui/components.js',
   './js/ui/edge-back.js',
+  './js/ui/navigation-transition.js',
   './js/ui/gestures.js',
   './js/utils.js',
   './manifest.json',

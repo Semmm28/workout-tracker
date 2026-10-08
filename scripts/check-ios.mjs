@@ -16,7 +16,7 @@ const swiftPackage = await read('ios/App/CapApp-SPM/Package.swift');
 
 assert.equal(config.webDir, 'dist');
 assert.equal(config.loggingBehavior, 'none', 'Native bridge logs must not include private workout payloads.');
-for (const file of ['WorkoutEnvelope.swift', 'WorkoutCloudStore.swift', 'WorkoutCloudPlugin.swift']) {
+for (const file of ['WorkoutEnvelope.swift', 'WorkoutCloudStore.swift', 'WorkoutCloudPlugin.swift', 'WorkoutWatchPlugin.swift', 'WatchModels.swift']) {
   assert.ok(project.includes(`${file} in Sources`), `${file} must compile into the iOS target.`);
 }
 assert.match(await read('ios/App/App/SceneDelegate.swift'), /rootViewController = WorkoutViewController\(\)/);
@@ -24,8 +24,13 @@ assert.ok(!config.server?.url, 'Production builds must load bundled assets, not 
 assert.equal(workflows['ios-testflight'].environment.ios_signing.bundle_identifier, config.appId);
 assert.equal(workflows['ios-testflight'].environment.ios_signing.distribution_type, 'app_store');
 const ids = [...project.matchAll(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g)].map((match) => match[1]);
-assert.equal(ids.length, 2, 'Both Debug and Release need a Bundle ID.');
-assert.ok(ids.every((id) => id === config.appId), 'Xcode and Capacitor Bundle IDs must match.');
+assert.equal(ids.filter(id => id === config.appId).length, 2);
+assert.equal(ids.filter(id => id === `${config.appId}.watchkitapp`).length, 2);
+assert.equal(ids.length, 4, 'Phone and Watch both need Debug and Release Bundle IDs.');
+assert.match(project, /Embed Watch Content/);
+assert.equal([...project.matchAll(/TARGETED_DEVICE_FAMILY = 4;/g)].length, 2);
+assert.equal([...project.matchAll(/WATCHOS_DEPLOYMENT_TARGET = 9.0;/g)].length, 2);
+assert.match(await read('ios/App/WorkoutWatch/Info.plist'), /WKCompanionAppBundleIdentifier<\/key><string>nl.sem.workouttracker<\/string>/);
 assert.match(scheme, /BlueprintIdentifier="504EC3031FED79650016851F"/);
 assert.match(project, /PrivacyInfo\.xcprivacy in Resources/);
 assert.match(privacy, /NSPrivacyAccessedAPICategoryFileTimestamp/);

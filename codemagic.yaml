@@ -12,9 +12,13 @@ workflows:
       - name: Install dependencies
         script: npm ci
       - name: Run application tests
-        script: npm test
+        script: |
+          set -euo pipefail
+          npm test
+          python3 tests/watch-signing-test.py
       - name: Test native sync conflict resolution
         script: |
+          set -euo pipefail
           mkdir -p build
           swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
           build/cloud-model-tests
@@ -61,9 +65,13 @@ workflows:
       - name: Install dependencies
         script: npm ci
       - name: Run application tests
-        script: npm test
+        script: |
+          set -euo pipefail
+          npm test
+          python3 tests/watch-signing-test.py
       - name: Test native sync conflict resolution
         script: |
+          set -euo pipefail
           mkdir -p build
           swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
           build/cloud-model-tests
@@ -75,6 +83,7 @@ workflows:
         script: npm run check:ios
       - name: Apply uploaded distribution certificate and App Store profile
         script: |
+          set -euo pipefail
           python3 scripts/prepare-watch-signing.py
           xcode-project use-profiles
       - name: Archive and export a signed IPA

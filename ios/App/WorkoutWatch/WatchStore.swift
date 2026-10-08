@@ -135,7 +135,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         DispatchQueue.main.async { self.receive(message) }
     }
-    func session(_ session: WCSession, didReceiveFile file: WCSessionFile) {
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
         // WCSession deletes this temporary file after the delegate returns.
         guard file.metadata?["workoutSnapshot"] as? Bool == true, let text = try? String(contentsOf: file.fileURL, encoding: .utf8) else { return }
         DispatchQueue.main.async { self.receive(["snapshot": text]) }

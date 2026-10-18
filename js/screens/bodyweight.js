@@ -39,12 +39,12 @@ export function renderBodyweightScreen() {
             <form class="bodyweight-form" id="bodyweight-form">
               <div class="two-col">
                 <div class="field-group">
-                  <label>Date</label>
-                  <input name="date" type="date" />
+                  <label for="bodyweight-date">Date</label>
+                  <input id="bodyweight-date" name="date" type="date" />
                 </div>
                 <div class="field-group">
-                  <label>Weight (kg) <span class="required-dot">•</span></label>
-                  <input name="weight" type="number" inputmode="decimal" step="0.1" min="0" required placeholder="0.0" />
+                  <label for="bodyweight-value">Weight (kg) <span class="required-dot">•</span></label>
+                  <input id="bodyweight-value" name="weight" type="number" inputmode="decimal" step="0.1" min="0.1" required placeholder="0.0" />
                 </div>
               </div>
               <div class="modal-footer bodyweight-footer">

@@ -138,7 +138,7 @@ export function buildChartSvg(series) {
 export function renderSwipeContainer(type, id, content, disabled, options = {}) {
   if (disabled) return content;
   const escapedId = escapeAttr(id);
-  const isClickableSet = type === 'set';
+  const isClickableSet = type === 'set' || type === 'bodyweight';
   const actionWidth = type === 'bodyweight' ? ACTION_WIDTH / 2 : ACTION_WIDTH;
   const actions = type === 'bodyweight'
     ? `<button class="delete" data-action="delete-${type}" data-id="${escapedId}" tabindex="-1">Delete</button>`
@@ -147,7 +147,7 @@ export function renderSwipeContainer(type, id, content, disabled, options = {}) 
         <button class="delete" data-action="delete-${type}" data-id="${escapedId}" tabindex="-1">Delete</button>
       `;
   const setToggleAttributes = isClickableSet
-    ? `data-swipe-toggle="set" role="button" tabindex="0" aria-expanded="false" aria-label="${escapeAttr(options.label || 'Set')}; show edit and delete actions"`
+    ? `data-swipe-toggle="set" role="button" tabindex="0" aria-expanded="false" aria-label="${escapeAttr(options.label || (type === 'bodyweight' ? 'Measurement' : 'Set'))}; show edit and delete actions"`
     : '';
   return `
     <div class="swipe-row" data-swipe-type="${type}" data-id="${escapedId}" data-action-width="${actionWidth}">
@@ -225,13 +225,13 @@ export function renderModal() {
           <form class="modal-body" id="entity-form">
             <div class="form-grid">
               <div class="field-group">
-                <label>${isBrand ? 'Brand name' : 'Machine name'} <span class="required-dot">•</span></label>
-                <input name="name" maxlength="80" required placeholder="${isBrand ? 'Example: Technogym' : 'Example: Leg Press'}" value="${escapeAttr(modal.data?.name || '')}" />
+                <label for="entity-name">${isBrand ? 'Brand name' : 'Machine name'} <span class="required-dot">•</span></label>
+                <input id="entity-name" name="name" maxlength="80" required placeholder="${isBrand ? 'Example: Technogym' : 'Example: Leg Press'}" value="${escapeAttr(modal.data?.name || '')}" />
               </div>
               ${isMachine ? `
                 <div class="field-group">
-                  <label>Machine note</label>
-                  <textarea name="note" maxlength="180" placeholder="Optional note you want to see while logging sets">${safeText(modal.data?.note || '')}</textarea>
+                  <label for="machine-note">Machine note</label>
+                  <textarea id="machine-note" name="note" maxlength="180" placeholder="Optional note you want to see while logging sets">${safeText(modal.data?.note || '')}</textarea>
                 </div>
               ` : ''}
             </div>
@@ -259,11 +259,11 @@ export function renderModal() {
             <div class="two-col">
               <div class="field-group">
                 <label for="set-weight">Weight <span class="required-dot">•</span></label>
-                <input id="set-weight" name="weight" type="number" inputmode="decimal" step="0.5" min="0" required placeholder="0" value="${escapeAttr(entry.weight || '')}" />
+                <input id="set-weight" name="weight" type="number" inputmode="decimal" step="0.5" min="0" required placeholder="0" value="${escapeAttr(entry.weight ?? '')}" />
               </div>
               <div class="field-group">
                 <label for="set-reps">Repetitions <span class="required-dot">•</span></label>
-                <input id="set-reps" name="reps" type="number" inputmode="numeric" step="1" min="0" required placeholder="0" value="${escapeAttr(entry.reps || '')}" />
+                <input id="set-reps" name="reps" type="number" inputmode="numeric" step="1" min="0" required placeholder="0" value="${escapeAttr(entry.reps ?? '')}" />
               </div>
             </div>
             <details class="set-extra">
@@ -315,7 +315,7 @@ export function renderConfirmSheet() {
   const sheet = state.confirmSheet;
   return `
     <div class="sheet-backdrop fade-in" data-action="close-sheet">
-      <section class="sheet slide-up" role="dialog" aria-modal="true">
+      <section class="sheet slide-up" role="dialog" aria-modal="true" aria-label="${escapeAttr(sheet.title)}">
         <div class="sheet-header">
           <div>
             <h2>${safeText(sheet.title)}</h2>

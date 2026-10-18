@@ -1,7 +1,7 @@
 import { icon } from '../constants.js';
 import { groupedRecentActivity } from '../selectors.js';
 import { state } from '../state.js';
-import { estimateE1rm, formatTime, formatWeight, safeText } from '../utils.js';
+import { escapeAttr, estimateE1rm, formatTime, formatWeight, safeText } from '../utils.js';
 import { renderHeader } from '../ui/components.js';
 
 function renderRecentActivityRow(item, setNumber) {
@@ -17,8 +17,8 @@ function renderRecentActivityRow(item, setNumber) {
       role="button"
       tabindex="0"
       data-action="open-recent-machine"
-      data-id="${entry.machineId}"
-      data-brand-id="${machine?.brandId || ''}"
+      data-id="${escapeAttr(entry.machineId)}"
+      data-brand-id="${escapeAttr(machine?.brandId || '')}"
     >
       <div class="set-card-top compact">
         <div>
@@ -48,7 +48,7 @@ function renderRecentActivityRow(item, setNumber) {
 function renderRecentActivityGroup(group) {
   return `
     <section class="date-group slide-up ${group.expanded ? 'is-expanded' : ''}">
-      <button class="date-toggle" data-action="toggle-recent-group" data-id="${group.key}" aria-expanded="${group.expanded ? 'true' : 'false'}">
+      <button class="date-toggle" data-action="toggle-recent-group" data-id="${escapeAttr(group.key)}" aria-expanded="${group.expanded ? 'true' : 'false'}">
         <span class="date-toggle-copy">
           <span class="date-toggle-title">${safeText(group.displayDate)}</span>
           <span class="muted">${group.items.length} set${group.items.length === 1 ? '' : 's'}</span>

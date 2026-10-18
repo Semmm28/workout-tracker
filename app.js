@@ -13,7 +13,10 @@ import { state } from './js/state.js';
 import { closeSwipeRows } from './js/ui/gestures.js';
 import { setupEdgeBackGesture } from './js/ui/edge-back.js';
 
+import { createFocusManager } from './js/ui/focus.js';
+
 const app = document.getElementById('app');
+const beforeRender = createFocusManager(app, goBack);
 
 let controller;
 
@@ -23,8 +26,10 @@ function render() {
     return;
   }
 
+  const restoreFocus = beforeRender();
   app.innerHTML = renderAppMarkup();
   controller.wireRenderedUi();
+  restoreFocus();
 }
 
 function navigate(route, replace = false) {
@@ -65,7 +70,7 @@ controller = createController({
 
 async function init() {
   controller.attachEventDelegation();
-  setupServiceWorkerAutoRefresh();
+  setupServiceWorkerAutoRefresh(controller.showToast);
   setupVisualViewportTracking();
   setupEdgeBackGesture({ canGoBack, goBack });
   window.addEventListener('popstate', () => {

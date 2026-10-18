@@ -20,10 +20,14 @@ export function setupVisualViewportTracking() {
   viewport?.addEventListener('scroll', updateViewportVariables, { passive: true });
 }
 
-export function setupServiceWorkerAutoRefresh() {
+export function setupServiceWorkerAutoRefresh(showToast) {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (isRefreshingApp) return;
+    if (document.querySelector('[role="dialog"], #bodyweight-form, input[type="search"]:focus')) {
+      showToast?.('Update klaar. Rond je invoer af en ververs via Instellingen.');
+      return;
+    }
     isRefreshingApp = true;
     window.location.reload();
   });

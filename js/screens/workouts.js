@@ -31,13 +31,13 @@ function renderBrandRow(brand, index, total) {
   const machineCount = machineCountByBrand(brand.id);
   const tail = state.reorder.brands
     ? `<div class="reorder-controls">
-        <button data-action="move-brand-up" data-id="${brand.id}" ${index === 0 ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
-        <button data-action="move-brand-down" data-id="${brand.id}" ${index === total - 1 ? 'disabled' : ''} aria-label="Move down">${icon.down}</button>
+        <button data-action="move-brand-up" data-id="${escapeAttr(brand.id)}" ${index === 0 ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
+        <button data-action="move-brand-down" data-id="${escapeAttr(brand.id)}" ${index === total - 1 ? 'disabled' : ''} aria-label="Move down">${icon.down}</button>
       </div>`
-    : `<div class="item-tail"><span>${machineCount} machine${machineCount === 1 ? '' : 's'}</span><span class="chevron">${icon.chevron}</span></div>`;
+    : `<div class="item-tail"><span>${machineCount} machine${machineCount === 1 ? '' : 's'}</span><button class="row-actions-toggle" data-swipe-menu aria-label="Edit or delete">⋯</button></div>`;
 
   const content = `
-    <div class="list-item" role="button" tabindex="0" data-action="open-brand" data-id="${brand.id}">
+    <div class="list-item" role="button" tabindex="0" data-action="open-brand" data-id="${escapeAttr(brand.id)}">
       <div class="item-leading">${safeText(buildInitials(brand.name))}</div>
       <div class="item-body">
         <div class="item-title">${safeText(brand.name)}</div>
@@ -57,8 +57,8 @@ export function renderBrandsScreen() {
     : `
       <section class="empty-state fade-in">
         <div class="loading-logo">WL</div>
-        <h2>No brands yet</h2>
-        <p>Create your first equipment brand to start organizing machines and workout sets.</p>
+        <h2>${state.search.brands ? 'No matching brands' : 'No brands yet'}</h2>
+        <p>${state.search.brands ? 'Try a different search or clear the search field.' : 'Create your first equipment brand to start organizing machines and workout sets.'}</p>
         <div><button class="primary-btn" data-action="open-brand-create">Add brand</button></div>
       </section>
     `;
@@ -77,7 +77,7 @@ export function renderBrandsScreen() {
         <section class="toolbar">
           <div class="search-wrap">
             <span class="search-icon">${icon.search}</span>
-            <input id="brand-search" type="search" inputmode="search" autocomplete="off" placeholder="Search brands" value="${escapeAttr(state.search.brands)}" />
+            <input aria-label="Search brands" id="brand-search" type="search" inputmode="search" autocomplete="off" placeholder="Search brands" value="${escapeAttr(state.search.brands)}" />
           </div>
           <div class="toolbar-row">
             <div class="meta-text">Swipe left for edit and delete</div>
@@ -94,13 +94,13 @@ function renderMachineRow(machine, index, total) {
   const count = setCountByMachine(machine.id);
   const tail = state.reorder.machines
     ? `<div class="reorder-controls">
-        <button data-action="move-machine-up" data-id="${machine.id}" ${index === 0 ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
-        <button data-action="move-machine-down" data-id="${machine.id}" ${index === total - 1 ? 'disabled' : ''} aria-label="Move down">${icon.down}</button>
+        <button data-action="move-machine-up" data-id="${escapeAttr(machine.id)}" ${index === 0 ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
+        <button data-action="move-machine-down" data-id="${escapeAttr(machine.id)}" ${index === total - 1 ? 'disabled' : ''} aria-label="Move down">${icon.down}</button>
       </div>`
-    : `<div class="item-tail"><span>${count} set${count === 1 ? '' : 's'}</span><span class="chevron">${icon.chevron}</span></div>`;
+    : `<div class="item-tail"><span>${count} set${count === 1 ? '' : 's'}</span><button class="row-actions-toggle" data-swipe-menu aria-label="Edit or delete">⋯</button></div>`;
 
   const content = `
-    <div class="list-item" role="button" tabindex="0" data-action="open-machine" data-id="${machine.id}">
+    <div class="list-item" role="button" tabindex="0" data-action="open-machine" data-id="${escapeAttr(machine.id)}">
       <div class="item-leading">${safeText(buildInitials(machine.name))}</div>
       <div class="item-body">
         <div class="item-title">${safeText(machine.name)}</div>
@@ -135,8 +135,8 @@ export function renderMachinesScreen() {
     : `
       <section class="empty-state fade-in">
         <div class="loading-logo">${safeText(buildInitials(brand.name))}</div>
-        <h2>No machines yet</h2>
-        <p>Add equipment under ${safeText(brand.name)} to keep your workout history organized.</p>
+        <h2>${state.search.machines ? 'No matching machines' : 'No machines yet'}</h2>
+        <p>${state.search.machines ? 'Try a different search or clear the search field.' : `Add equipment under ${safeText(brand.name)} to keep your workout history organized.`}</p>
         <div><button class="primary-btn" data-action="open-machine-create">Add machine</button></div>
       </section>
     `;
@@ -157,7 +157,7 @@ export function renderMachinesScreen() {
         <section class="toolbar">
           <div class="search-wrap">
             <span class="search-icon">${icon.search}</span>
-            <input id="machine-search" type="search" inputmode="search" autocomplete="off" placeholder="Search machines" value="${escapeAttr(state.search.machines)}" />
+            <input aria-label="Search machines" id="machine-search" type="search" inputmode="search" autocomplete="off" placeholder="Search machines" value="${escapeAttr(state.search.machines)}" />
           </div>
           <div class="toolbar-row">
             <div class="meta-text">Swipe left for edit and delete</div>

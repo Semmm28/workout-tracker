@@ -14,6 +14,8 @@ import {
   saveSet,
 } from './repository.js';
 import { state } from './state.js';
+import { renderToast } from './ui/components.js';
+import { wireAsyncForm } from './ui/forms.js';
 import { wireSwipeRows } from './ui/gestures.js';
 import {
   debounce,
@@ -76,10 +78,10 @@ export function createController({ render, navigate, goBack, refreshApp }) {
   function showToast(message, undo) {
     clearTimeout(toastTimer);
     state.toast = { message, undo };
-    render();
+    document.querySelector('[data-toast-region]').innerHTML = renderToast();
     toastTimer = setTimeout(() => {
       state.toast = null;
-      render();
+      document.querySelector('[data-toast-region]').innerHTML = '';
     }, 4500);
   }
 
@@ -111,12 +113,22 @@ export function createController({ render, navigate, goBack, refreshApp }) {
     const machineSearch = document.getElementById('machine-search');
     const importFileInput = document.getElementById('import-file-input');
     if (brandSearch) brandSearch.addEventListener('input', debounce((event) => {
+      if (!event.target.isConnected) return;
       state.search.brands = event.target.value;
+      const { selectionStart, selectionEnd } = event.target;
       render();
+      const input = document.getElementById('brand-search');
+      input?.focus({ preventScroll: true });
+      input?.setSelectionRange(selectionStart, selectionEnd);
     }, 10));
     if (machineSearch) machineSearch.addEventListener('input', debounce((event) => {
+      if (!event.target.isConnected) return;
       state.search.machines = event.target.value;
+      const { selectionStart, selectionEnd } = event.target;
       render();
+      const input = document.getElementById('machine-search');
+      input?.focus({ preventScroll: true });
+      input?.setSelectionRange(selectionStart, selectionEnd);
     }, 10));
     if (importFileInput) {
       importFileInput.addEventListener('change', async (event) => {
@@ -124,8 +136,11 @@ export function createController({ render, navigate, goBack, refreshApp }) {
         if (!file) return;
         try {
           const total = await importDataFile(file);
+          render();
           if (!total) showToast('No valid records found in import file');
           else showToast(`Imported ${total} record${total === 1 ? '' : 's'}`);
+        } catch {
+          showToast('Import niet voltooid. Controleer of dit een geldig JSON-bestand van Workout Log is.');
         } finally {
           event.target.value = '';
         }
@@ -136,8 +151,8 @@ export function createController({ render, navigate, goBack, refreshApp }) {
   function wireForms() {
     const entityForm = document.getElementById('entity-form');
     if (entityForm) {
-      entityForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+      wireAsyncForm(entityForm, async () => {
+        const modal = state.modal;
         const form = new FormData(entityForm);
         const name = String(form.get('name') || '').trim();
         if (!name) return;
@@ -147,8 +162,8 @@ export function createController({ render, navigate, goBack, refreshApp }) {
           const note = String(form.get('note') || '').trim();
           await saveMachine(name, note, state.modal.mode === 'edit' ? state.modal.data : null);
         }
-        closeModal();
-      });
+        if (state.modal === modal) closeModal();
+      }, showToast);
     }
 
     const setForm = document.getElementById('set-form');
@@ -157,8 +172,8 @@ export function createController({ render, navigate, goBack, refreshApp }) {
         const extra = event.target.closest('details');
         if (extra) extra.open = true;
       }, true);
-      setForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+      wireAsyncForm(setForm, async () => {
+        const modal = state.modal;
         const form = new FormData(setForm);
         const weight = String(form.get('weight') || '').trim();
         const reps = String(form.get('reps') || '').trim();
@@ -177,14 +192,13 @@ export function createController({ render, navigate, goBack, refreshApp }) {
           rpe,
         };
         await saveSet(payload, state.modal.mode === 'edit' ? state.modal.data : null);
-        closeModal();
-      });
+        if (state.modal === modal) closeModal();
+      }, showToast);
     }
 
     const bodyweightForm = document.getElementById('bodyweight-form');
     if (bodyweightForm) {
-      bodyweightForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+      wireAsyncForm(bodyweightForm, async () => {
         const form = new FormData(bodyweightForm);
         const weight = Number(String(form.get('weight') || '').trim());
         const loggedAt = parseBodyweightDate(String(form.get('date') || '').trim());
@@ -192,7 +206,7 @@ export function createController({ render, navigate, goBack, refreshApp }) {
         await saveBodyweight({ loggedAt, weight: formatWeight(weight) });
         bodyweightForm.reset();
         render();
-      });
+      }, showToast);
     }
   }
 
@@ -227,6 +241,7 @@ export function createController({ render, navigate, goBack, refreshApp }) {
     if (!target) return;
     await deleteById('sets', id);
     await loadState();
+    render();
     showToast('Set deleted', async () => {
       await saveRecord('sets', target);
       await loadState();
@@ -239,6 +254,7 @@ export function createController({ render, navigate, goBack, refreshApp }) {
     if (!target) return;
     await deleteById('bodyweights', id);
     await loadState();
+    render();
     showToast('Measurement deleted', async () => {
       await saveRecord('bodyweights', target);
       await loadState();
@@ -247,7 +263,7 @@ export function createController({ render, navigate, goBack, refreshApp }) {
   }
 
   function attachEventDelegation() {
-    document.addEventListener('click', async (event) => {
+    async function handleClick(event) {
       const target = event.target.closest('[data-action]');
       if (!target) return;
       const action = target.dataset.action;
@@ -361,6 +377,12 @@ export function createController({ render, navigate, goBack, refreshApp }) {
       if (action === 'delete-set') return handleDeleteSet(id);
       if (action === 'delete-bodyweight') return handleDeleteBodyweight(id);
       if (action === 'confirm-sheet' && state.confirmSheet?.confirm) return state.confirmSheet.confirm();
+    }
+    document.addEventListener('click', (event) => {
+      void handleClick(event).catch((error) => {
+        console.warn('Action failed:', error);
+        showToast('Actie niet voltooid. Probeer het opnieuw.');
+      });
     });
 
     document.addEventListener('change', (event) => {

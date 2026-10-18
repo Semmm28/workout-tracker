@@ -58,7 +58,7 @@ test('dialogs trap keyboard focus, isolate the background, and restore their ope
   const originalCSS = globalThis.CSS;
   t.after(() => { globalThis.document = originalDocument; globalThis.CSS = originalCSS; });
   globalThis.CSS = { escape: (value) => value };
-  const element = (id) => ({ id, focus() { document.activeElement = this; }, getClientRects: () => [1] });
+  const element = (id) => ({ id, closest: () => null, focus() { document.activeElement = this; }, getClientRects: () => [1] });
   const opener = element('open');
   const first = element('close');
   const last = element('save');
@@ -87,6 +87,16 @@ test('dialogs trap keyboard focus, isolate the background, and restore their ope
   close();
   assert.equal(background.inert, false);
   assert.equal(document.activeElement, opener);
+
+  const returnToRow = beforeRender();
+  dialog = { querySelector: () => first, querySelectorAll: () => [first, last] };
+  returnToRow();
+  const closeEdit = beforeRender();
+  dialog = null;
+  const row = element('set-row');
+  opener.closest = (selector) => selector === '[inert]' ? {} : { querySelector: () => row };
+  closeEdit();
+  assert.equal(document.activeElement, row, 'Closing Edit returns to the set, not its hidden edit action');
 });
 
 test('an incoming app update keeps an open form until the user refreshes', async (t) => {

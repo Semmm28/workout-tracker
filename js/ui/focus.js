@@ -42,7 +42,10 @@ export function createFocusManager(root, closeDialog) {
         opener = active;
         dialog.querySelector('button')?.focus({ preventScroll: true });
       } else if (!dialog && hadDialog) {
-        const target = opener && root.querySelector(opener);
+        let target = opener && root.querySelector(opener);
+        if (target?.closest('[inert]')) {
+          target = target.closest('.swipe-row')?.querySelector('.swipe-track[data-swipe-toggle], .swipe-track [data-action]');
+        }
         (target || root.querySelector('.header button, .tab-button'))?.focus({ preventScroll: true });
         opener = null;
       }

@@ -132,6 +132,13 @@ export function wireSwipeRows() {
         event.stopPropagation();
         return;
       }
+      if (event.target.closest('[data-swipe-menu]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpenTrack(track, !row.classList.contains('is-open'), actionWidth);
+        actions?.querySelector('button')?.focus({ preventScroll: true });
+        return;
+      }
       if (!track.contains(event.target)) return;
       if (!canToggleOnClick) return;
       event.preventDefault();

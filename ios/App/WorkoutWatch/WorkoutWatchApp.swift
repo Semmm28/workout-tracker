@@ -13,19 +13,19 @@ struct WorkoutWatchApp: App {
                 .alert("Workout Log", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                     Button("OK") { store.error = nil }
                 } message: { Text(store.error ?? "") }
-                .onChange(of: phase) { if $0 == .active { store.refresh() } }
+                .task(id: phase) { if phase == .active { store.refresh() } }
         }
     }
 }
 
 private struct MachineRow: View {
-    @EnvironmentObject var store: WatchStore
     let machine: WatchMachine
+    let brandName: String
     var body: some View {
         NavigationLink { SetEditor(machine: machine) } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(machine.name).font(.headline)
-                Text(store.brandName(machine)).font(.caption2).foregroundStyle(.secondary)
+                Text(brandName).font(.caption2).foregroundStyle(.secondary)
             }
         }
     }
@@ -42,7 +42,7 @@ private struct WatchHome: View {
                 Text("Voeg op je iPhone een merk en apparaat toe.").font(.footnote)
             }
             if !store.recentMachines.isEmpty {
-                Section("Recent") { ForEach(store.recentMachines) { MachineRow(machine: $0) } }
+                Section("Recent") { ForEach(store.recentMachines) { MachineRow(machine: $0, brandName: store.brandName($0)) } }
             }
             NavigationLink("Alle apparaten") { BrandList() }
             NavigationLink("Vandaag · \(store.today.count)") { TodayList() }
@@ -61,7 +61,7 @@ private struct BrandList: View {
                     List {
                         let machines = store.replica.snapshot.machines.filter { $0.brandId == brand.id }
                         if machines.isEmpty { Text("Nog geen apparaten. Voeg ze toe op je iPhone.").font(.footnote) }
-                        ForEach(machines) { MachineRow(machine: $0) }
+                        ForEach(machines) { MachineRow(machine: $0, brandName: store.brandName($0)) }
                     }.navigationTitle(brand.name)
                 }
             }
@@ -82,6 +82,7 @@ private struct SetEditor: View {
     @State private var loaded = false
     @State private var field: SetField?
     @State private var showRest = false
+    @ScaledMetric(relativeTo: .title2) private var valueSize = 29.0
 
     var body: some View {
         ScrollView {
@@ -109,6 +110,7 @@ private struct SetEditor: View {
         }
         .navigationTitle(machine.name)
         .onAppear {
+            // Seed this editing session once; incoming sync must not replace a draft.
             guard !loaded else { return }
             let last = existing ?? store.replica.lastSet(machine.id)
             weight = last?.weight ?? 0; reps = Double(last?.reps ?? 10); loaded = true
@@ -127,10 +129,10 @@ private struct SetEditor: View {
     private func valueButton(_ value: Double, label: String, field: SetField) -> some View {
         Button { self.field = field } label: {
             VStack(spacing: 2) {
-                Text(value.formatted()).font(.system(size: 29, weight: .semibold, design: .rounded)).minimumScaleFactor(0.65).lineLimit(1)
+                Text(value.formatted()).font(.system(size: valueSize, weight: .semibold, design: .rounded)).monospacedDigit().minimumScaleFactor(0.65).lineLimit(1)
                 Text(label).font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
             }.frame(maxWidth: .infinity, minHeight: 55)
-        }.accessibilityLabel("\(label): \(value.formatted()), aanpassen")
+        }.accessibilityLabel(label).accessibilityValue(value.formatted()).accessibilityHint("Tik om aan te passen")
     }
 }
 
@@ -143,37 +145,47 @@ private struct ValuePicker: View {
     let maximum: Double
     @Environment(\.dismiss) private var dismiss
     @State private var draft = 0.0
+    @State private var loaded = false
+    @ScaledMetric(relativeTo: .largeTitle) private var valueSize = 43.0
     var body: some View {
-        VStack(spacing: 8) {
-            Text(title).font(.headline)
-            Text(draft.formatted()).font(.system(size: 43, weight: .semibold, design: .rounded)).minimumScaleFactor(0.65).lineLimit(1)
-                .focusable()
-                .digitalCrownRotation($draft, from: minimum, through: maximum, by: step, sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
-            Text(unit).font(.caption2).foregroundStyle(.secondary)
-            HStack {
-                Button { draft = max(minimum, draft - step) } label: { Image(systemName: "minus") }.accessibilityLabel("Verlagen")
-                Button { draft = min(maximum, draft + step) } label: { Image(systemName: "plus") }.accessibilityLabel("Verhogen")
+        ScrollView {
+            VStack(spacing: 8) {
+                Text(title).font(.headline)
+                Text(draft.formatted(.number.precision(.fractionLength(0...(unit == "kg" ? 2 : 0))))).font(.system(size: valueSize, weight: .semibold, design: .rounded)).monospacedDigit().minimumScaleFactor(0.65).lineLimit(1)
+                    .focusable()
+                    .digitalCrownRotation($draft, from: minimum, through: maximum, by: step, sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+                Text(unit).font(.caption2).foregroundStyle(.secondary)
+                HStack {
+                    Button { draft = max(minimum, draft - step) } label: { Image(systemName: "minus") }.accessibilityLabel("Verlagen")
+                    Button { draft = min(maximum, draft + step) } label: { Image(systemName: "plus") }.accessibilityLabel("Verhogen")
+                }
+                Button("Gereed") { value = unit == "kg" ? (draft * 100).rounded() / 100 : draft.rounded(); dismiss() }.buttonStyle(.borderedProminent)
             }
-            Button("Gereed") { value = (draft * 100).rounded() / 100; dismiss() }.buttonStyle(.borderedProminent)
-        }.onAppear { draft = value }
+        }.onAppear {
+            // A presented picker owns its draft until the user chooses Gereed.
+            guard !loaded else { return }
+            draft = min(maximum, max(minimum, value)); loaded = true
+        }
     }
 }
 
 private struct RestView: View {
     @EnvironmentObject var store: WatchStore
     @Environment(\.dismiss) private var dismiss
+    @ScaledMetric(relativeTo: .largeTitle) private var timerSize = 46.0
     var body: some View {
         ScrollView {
             VStack(spacing: 8) {
                 Label("Set opgeslagen", systemImage: "checkmark.circle").font(.footnote).foregroundStyle(.green)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let seconds = max(0, Int(ceil((store.replica.restUntil ?? context.date).timeIntervalSince(context.date))))
-                    Text(String(format: "%d:%02d", seconds / 60, seconds % 60)).font(.system(size: 46, weight: .medium, design: .rounded)).monospacedDigit()
+                    Text(String(format: "%d:%02d", seconds / 60, seconds % 60)).font(.system(size: timerSize, weight: .medium, design: .rounded)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.65)
+                        .accessibilityLabel("Resterende rust").accessibilityValue("\(seconds) seconden")
                     Text(seconds == 0 ? "Klaar voor je volgende set" : "Rust").font(.caption2).foregroundStyle(.secondary)
                 }
-                HStack {
+                VStack {
                     Button("+30 sec") { store.extendRest() }
-                    Button("Volgende set") { store.endRest(); dismiss() }.tint(.blue)
+                    Button("Volgende set") { if store.endRest() { dismiss() } }.tint(.blue)
                 }.font(.footnote)
                 Button("Ongedaan maken") { if store.undoLastSet() { dismiss() } }.font(.footnote)
             }

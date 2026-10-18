@@ -16,7 +16,10 @@ import { closeSwipeRows } from './js/ui/gestures.js';
 import { setupEdgeBackGesture } from './js/ui/edge-back.js';
 import { createNavigationTransition } from './js/ui/navigation-transition.js';
 
+import { createFocusManager } from './js/ui/focus.js';
+
 const app = document.getElementById('app');
+const beforeRender = createFocusManager(app, goBack);
 const transition = createNavigationTransition(app);
 let lastDepth = navigationDepth();
 
@@ -28,8 +31,10 @@ function render() {
     return;
   }
 
+  const restoreFocus = beforeRender();
   app.innerHTML = renderAppMarkup();
   controller.wireRenderedUi();
+  restoreFocus();
 }
 
 function navigate(route, replace = false, direction = 'forward') {
@@ -72,7 +77,7 @@ controller = createController({
 
 async function init() {
   controller.attachEventDelegation();
-  setupServiceWorkerAutoRefresh();
+  setupServiceWorkerAutoRefresh(controller.showToast);
   setupVisualViewportTracking();
   setupEdgeBackGesture({ canGoBack, goBack });
   window.addEventListener('popstate', () => {
@@ -94,15 +99,18 @@ async function init() {
   lastDepth = navigationDepth();
   render();
   registerServiceWorker();
+  const isEditing = () => state.modal || state.confirmSheet
+    || document.activeElement?.matches('input, textarea, select')
+    || document.getElementById('bodyweight-value')?.value;
   void initializeWatchSync(async () => {
     await loadState();
-    if (!state.modal && !state.confirmSheet) render();
+    if (!isEditing()) render();
   });
   void initializeCloudSync(async (dataChanged) => {
     if (dataChanged) await loadState();
     if (dataChanged) scheduleWatchSync();
     // Never replace a form while the user is typing because sync completed.
-    if (!state.modal && !state.confirmSheet && (dataChanged || state.route.screen === 'settings')) render();
+    if (!isEditing() && (dataChanged || state.route.screen === 'settings')) render();
   });
 }
 

@@ -28,6 +28,42 @@ function loadFixture() {
   state.preferences.chartSeriesMode = 'e1rmMax';
 }
 
+test('editing a zero-weight set preserves zero and associates form labels', () => {
+  loadFixture();
+  state.modal = { type: 'set', mode: 'edit', data: { weight: 0, reps: 0 } };
+  const markup = renderAppMarkup();
+  assert.match(markup, /id="set-weight"[^>]*value="0"/);
+  assert.match(markup, /id="set-reps"[^>]*value="0"/);
+  state.modal = { type: 'brand', mode: 'create' };
+  assert.match(renderAppMarkup(), /label for="entity-name"/);
+});
+
+test('empty search results explain filtering rather than missing workout data', () => {
+  loadFixture();
+  state.route = { screen: 'brands' };
+  state.search.brands = 'not a brand';
+  assert.match(renderAppMarkup(), /No matching brands/);
+  assert.doesNotMatch(renderAppMarkup(), /No brands yet/);
+  state.route = { screen: 'machines', brandId: 'brand_1' };
+  state.search.machines = 'not a machine';
+  assert.match(renderAppMarkup(), /No matching machines/);
+});
+
+test('imported record identifiers cannot inject HTML attributes', () => {
+  loadFixture();
+  const id = 'record" onfocus="alert(1)';
+  state.brands[0].id = id;
+  state.machines[0].brandId = id;
+  state.machines[0].id = id;
+  state.sets[0].machineId = id;
+  for (const screen of ['brands', 'machines', 'recentActivity']) {
+    state.route = { screen, brandId: id };
+    const markup = renderAppMarkup();
+    assert.doesNotMatch(markup, / onfocus="/);
+    assert.match(markup, /record&quot; onfocus=&quot;alert\(1\)/);
+  }
+});
+
 test('all routes render their existing screen content', () => {
   loadFixture();
   const expectations = [

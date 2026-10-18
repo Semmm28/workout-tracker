@@ -39,7 +39,7 @@ export function renderAppMarkup() {
       ${renderBottomNavigation()}
       ${renderModal()}
       ${renderConfirmSheet()}
-      ${renderToast()}
+      <div data-toast-region role="status" aria-live="polite" aria-atomic="true">${renderToast()}</div>
     </main>
   `;
 }

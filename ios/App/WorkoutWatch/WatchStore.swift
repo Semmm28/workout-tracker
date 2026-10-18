@@ -62,8 +62,10 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
         guard commit({ next in try next.save(set, deleted: true); next.restUntil = nil; next.restSetId = nil }) else { return false }
         cancelRestNotification(); sendPending(); return true
     }
-    func endRest() {
-        if commit({ $0.restUntil = nil; $0.restSetId = nil }) { cancelRestNotification() }
+    func endRest() -> Bool {
+        guard commit({ $0.restUntil = nil; $0.restSetId = nil }) else { return false }
+        cancelRestNotification()
+        return true
     }
     func extendRest() {
         if commit({ $0.restUntil = max($0.restUntil ?? Date(), Date()).addingTimeInterval(30) }) { scheduleRestNotification() }

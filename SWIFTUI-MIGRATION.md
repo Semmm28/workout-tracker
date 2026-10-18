@@ -10,7 +10,7 @@ Search brands        Machine note         Weight | Repetitions
 Brand > machines     Progress chart       Date/time, RPE, notes
 Recent activity      Day > sets           Save
                      Add set
-Tabs: Workouts / Log set / Bodyweight / Settings
+Tabs: Workouts / Recent / Log set / Bodyweight / Settings
 ```
 
 ## Required verification

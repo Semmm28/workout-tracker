@@ -342,6 +342,7 @@ struct BodyweightScreen: View {
                         Text(row.date.formatted(date: .abbreviated, time: .omitted)).font(.subheadline).foregroundStyle(.secondary)
                     }.padding(.vertical, 4)
                     .swipeActions { Button("Verwijder", role: .destructive) { Task { await store.remove(kind: "bodyweights", id: row.id) } } }
+                }
             }
         }.navigationTitle("Lichaamsgewicht")
         .sheet(item: $editor) { WorkoutEditor(request: $0) }

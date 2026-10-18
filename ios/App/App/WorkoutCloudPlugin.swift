@@ -69,7 +69,6 @@ public class WorkoutCloudPlugin: CAPPlugin, CAPBridgedPlugin {
 
 class WorkoutViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
-        bridge?.registerPluginInstance(WorkoutCloudPlugin())
-        bridge?.registerPluginInstance(WorkoutWatchPlugin())
+        bridge?.registerPluginInstance(WorkoutMigrationPlugin())
     }
 }

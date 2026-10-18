@@ -1,15 +1,12 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
-import { createNativeExporter } from './export.js';
+import { readLegacyDatabase, seedMigrationFixture } from './migration.js';
 
 // Only bundled into the native build. The static PWA needs no npm runtime.
 if (Capacitor.isNativePlatform()) {
-  globalThis.workoutNative = {
-    exportJson: createNativeExporter({ Filesystem, Share, Directory, Encoding }),
-    cloud: registerPlugin('WorkoutCloud'),
-    watch: registerPlugin('WorkoutWatch'),
-  };
+  const migration = registerPlugin('WorkoutMigration');
+  try {
+    const { testFixture } = await migration.prepare();
+    if (testFixture) await seedMigrationFixture(indexedDB, localStorage);
+    await migration.complete({ payload: JSON.stringify(await readLegacyDatabase(indexedDB, localStorage)) });
+  } catch { await migration.failed(); }
 }
-
-await import('../app.js');

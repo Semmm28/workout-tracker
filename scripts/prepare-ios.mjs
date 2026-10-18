@@ -12,7 +12,7 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Use a numeric x.y.z app v
 
 const path = resolve(root, 'ios/App/App.xcodeproj/project.pbxproj');
 let project = await readFile(path, 'utf8');
-project = project.replace(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g, (_, id) => `PRODUCT_BUNDLE_IDENTIFIER = ${config.appId}${id.endsWith('.watchkitapp') ? '.watchkitapp' : ''};`);
+project = project.replace(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g, (_, id) => `PRODUCT_BUNDLE_IDENTIFIER = ${config.appId}${id.includes('.watchkitapp') ? '.watchkitapp' : id.includes('.uitests') ? '.uitests' : ''};`);
 project = project.replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`);
 // The first release targets iOS 16 and later.
 project = project.replace(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g, 'IPHONEOS_DEPLOYMENT_TARGET = 16.0;');

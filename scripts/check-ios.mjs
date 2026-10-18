@@ -16,17 +16,19 @@ const swiftPackage = await read('ios/App/CapApp-SPM/Package.swift');
 
 assert.equal(config.webDir, 'dist');
 assert.equal(config.loggingBehavior, 'none', 'Native bridge logs must not include private workout payloads.');
-for (const file of ['WorkoutEnvelope.swift', 'WorkoutCloudStore.swift', 'WorkoutCloudPlugin.swift', 'WorkoutWatchPlugin.swift', 'WatchModels.swift']) {
+for (const file of ['WorkoutEnvelope.swift', 'WorkoutCloudStore.swift', 'WorkoutCloudPlugin.swift', 'WorkoutWatchPlugin.swift', 'WatchModels.swift', 'PhoneModel.swift', 'PhoneStore.swift', 'PhoneMigration.swift', 'PhoneViews.swift', 'PhoneEditors.swift']) {
   assert.ok(project.includes(`${file} in Sources`), `${file} must compile into the iOS target.`);
 }
-assert.match(await read('ios/App/App/SceneDelegate.swift'), /rootViewController = WorkoutViewController\(\)/);
+assert.match(await read('ios/App/App/SceneDelegate.swift'), /UIHostingController\(rootView: PhoneRootView\(\)\)/);
+assert.ok(!info.includes('UIMainStoryboardFile') && !info.includes('UISceneStoryboardFile'));
 assert.ok(!config.server?.url, 'Production builds must load bundled assets, not a hosted URL.');
 assert.equal(workflows['ios-testflight'].environment.ios_signing.bundle_identifier, config.appId);
 assert.equal(workflows['ios-testflight'].environment.ios_signing.distribution_type, 'app_store');
 const ids = [...project.matchAll(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g)].map((match) => match[1]);
 assert.equal(ids.filter(id => id === config.appId).length, 2);
 assert.equal(ids.filter(id => id === `${config.appId}.watchkitapp`).length, 2);
-assert.equal(ids.length, 4, 'Phone and Watch both need Debug and Release Bundle IDs.');
+assert.equal(ids.filter(id => id === `${config.appId}.uitests`).length, 2);
+assert.equal(ids.length, 6, 'Phone, Watch and UI tests need separate Bundle IDs.');
 assert.match(project, /Embed Watch Content/);
 assert.equal([...project.matchAll(/TARGETED_DEVICE_FAMILY = 4;/g)].length, 2);
 assert.equal([...project.matchAll(/WATCHOS_DEPLOYMENT_TARGET = 9.0;/g)].length, 2);

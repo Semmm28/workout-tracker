@@ -17,17 +17,13 @@ workflows:
           npm test
           python3 tests/watch-signing-test.py
       - name: Test native sync conflict resolution
-        script: |
-          set -euo pipefail
-          mkdir -p build
-          swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
-          build/cloud-model-tests
-          swiftc ios/App/App/WorkoutEnvelope.swift ios/App/Shared/WatchModels.swift tests/native-watch-model.swift -o build/watch-model-tests
-          build/watch-model-tests
+        script: bash scripts/test-native.sh
       - name: Bundle web assets and sync the iOS project
         script: npm run ios:sync
       - name: Validate iOS configuration
         script: npm run check:ios
+      - name: Test SwiftUI flows and legacy migration on iPhone Simulator
+        script: bash scripts/test-ios-ui.sh
       - name: Compile for iOS Simulator
         script: |
           set -euo pipefail
@@ -47,6 +43,10 @@ workflows:
     artifacts:
       - build/WorkoutLog-simulator.zip
       - build/xcode-simulator.log
+      - build/xcode-ui-tests.log
+      - build/PhoneUITests.xcresult
+      - build/ui-evidence/**
+      - build/native-backup.json
 
   ios-testflight:
     name: iOS - IPA en upload naar TestFlight
@@ -70,17 +70,13 @@ workflows:
           npm test
           python3 tests/watch-signing-test.py
       - name: Test native sync conflict resolution
-        script: |
-          set -euo pipefail
-          mkdir -p build
-          swiftc ios/App/App/WorkoutEnvelope.swift tests/native-cloud-model.swift -o build/cloud-model-tests
-          build/cloud-model-tests
-          swiftc ios/App/App/WorkoutEnvelope.swift ios/App/Shared/WatchModels.swift tests/native-watch-model.swift -o build/watch-model-tests
-          build/watch-model-tests
+        script: bash scripts/test-native.sh
       - name: Bundle web assets and sync the iOS project
         script: npm run ios:sync
       - name: Validate iOS configuration
         script: npm run check:ios
+      - name: Test SwiftUI flows and legacy migration on iPhone Simulator
+        script: bash scripts/test-ios-ui.sh
       - name: Apply uploaded distribution certificate and App Store profile
         script: |
           set -euo pipefail
@@ -112,6 +108,10 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+      - build/xcode-ui-tests.log
+      - build/PhoneUITests.xcresult
+      - build/ui-evidence/**
+      - build/native-backup.json
     publishing:
       app_store_connect:
         auth: integration

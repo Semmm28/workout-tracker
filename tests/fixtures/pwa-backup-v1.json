@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "exportedAt": "2026-10-18T12:00:00.000Z",
+  "brands": [{"id":"b1","name":"Technogym","sortOrder":0,"createdAt":"2026-10-01T10:00:00.000Z"}],
+  "machines": [{"id":"m1","brandId":"b1","name":"Chest Press","note":"Stoel op stand 4","sortOrder":0}],
+  "sets": [
+    {"id":"s1","machineId":"m1","weight":"80","reps":"8","loggedAt":"2026-10-17T10:00:00.000Z","createdAt":"2026-10-17T10:00:00.000Z","rpe":"8.5","notes":"Volledige beweging","extra":{"retained":true}},
+    {"id":"s2","machineId":"m1","weight":80,"reps":10,"loggedAt":"2026-10-17T10:03:00.000Z","rpe":"","notes":""},
+    {"id":"s3","machineId":"m1","weight":0,"reps":0,"loggedAt":"2026-10-18T10:00:00.000Z","notes":"Nulwaarden blijven behouden"}
+  ],
+  "bodyweights": [{"id":"bw1","weight":"80.5","loggedAt":"2026-10-18T12:00:00.000Z"}]
+}

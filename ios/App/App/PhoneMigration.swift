@@ -5,7 +5,7 @@ import Capacitor
 public class WorkoutMigrationPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "WorkoutMigrationPlugin"
     public let jsName = "WorkoutMigration"
-    public let pluginMethods = [CAPPluginMethod(name: "complete", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "failed", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "prepare", returnType: CAPPluginReturnPromise)]
+    public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "complete", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "failed", returnType: CAPPluginReturnPromise), CAPPluginMethod(name: "prepare", returnType: CAPPluginReturnPromise)]
     @objc func prepare(_ call: CAPPluginCall) {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--ui-test-migration") {

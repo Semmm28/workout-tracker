@@ -2,8 +2,21 @@
 set -euo pipefail
 mkdir -p build
 trap 'xcrun xcresulttool export attachments --path build/PhoneUITests.xcresult --output-path build/ui-evidence || true' EXIT
-xcrun simctl list devices available -j > build/simulators.json
-device_id=$(python3 -c 'import json; d=json.load(open("build/simulators.json")); phones=[x for k,v in d["devices"].items() if "iOS" in k for x in v if "iPhone" in x["name"]]; assert phones,"No iPhone simulator installed"; print(phones[0]["udid"])')
+xcrun simctl list -j > build/simulators.json
+device_id=$(python3 - <<'PY'
+import json, subprocess
+d = json.load(open("build/simulators.json"))
+runtimes = [r for r in d["runtimes"] if r["isAvailable"] and "iOS" in r["name"]]
+runtime = max(runtimes, key=lambda r: tuple(map(int, r["version"].split("."))))
+compact = next((t for t in d["devicetypes"] if t["name"] == "iPhone SE (3rd generation)"), None)
+if compact:
+    print(subprocess.check_output(["xcrun", "simctl", "create", "Workout compact UI tests", compact["identifier"], runtime["identifier"]], text=True).strip())
+else:
+    phones = [x for x in d["devices"][runtime["identifier"]] if x["isAvailable"] and "iPhone" in x["name"]]
+    assert phones, "No iPhone simulator installed"
+    print(phones[0]["udid"])
+PY
+)
 xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -destination "platform=iOS Simulator,id=$device_id" \
   -derivedDataPath build/DerivedData -resultBundlePath build/PhoneUITests.xcresult \

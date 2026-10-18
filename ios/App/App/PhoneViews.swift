@@ -253,7 +253,7 @@ struct MachineDetailScreen: View {
                         ForEach(day.entries) { entry in
                             Button { editor = EditRequest(kind: "sets", record: entry) } label: {
                                 SetSummary(record: entry, index: day.entries.firstIndex(where: { $0.id == entry.id }).map { $0 + 1 }, personalRecord: prs.contains(entry.id))
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(.plain).accessibilityIdentifier("set-\(entry.id)")
                             .swipeActions {
                                 Button("Verwijder", role: .destructive) { Task { await store.remove(kind: "sets", id: entry.id) } }
                                 Button("Wijzig") { editor = EditRequest(kind: "sets", record: entry) }.tint(.blue)

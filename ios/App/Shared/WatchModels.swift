@@ -41,7 +41,7 @@ extension WatchSet {
         machineId = try values.decode(String.self, forKey: .machineId)
         weight = try number(.weight)
         let count = try number(.reps)
-        guard count.rounded() == count, (1...1000).contains(count) else {
+        guard count.rounded() == count, (0...1000).contains(count) else {
             throw DecodingError.dataCorruptedError(forKey: .reps, in: values, debugDescription: "Invalid repetitions")
         }
         reps = Int(count)
@@ -84,7 +84,7 @@ extension WorkoutEnvelope {
         guard let value, let data = value.data(using: .utf8) else { throw WorkoutCloudError(code: "watch-schema") }
         let set = try JSONDecoder().decode(WatchSet.self, from: data)
         guard set.id == id, !set.machineId.isEmpty, set.weight.isFinite, (0...2000).contains(set.weight),
-              (1...1000).contains(set.reps), WatchSet.date(set.loggedAt) != nil else { throw WorkoutCloudError(code: "watch-schema") }
+              (0...1000).contains(set.reps), WatchSet.date(set.loggedAt) != nil else { throw WorkoutCloudError(code: "watch-schema") }
         return set
     }
 }

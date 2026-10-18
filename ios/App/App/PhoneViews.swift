@@ -102,7 +102,8 @@ struct BrandScreen: View {
                 NavigationLink { MachineScreen(brandID: brand.id) } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(brand.name).font(.headline)
-                        Text("\(store.machines.filter { $0.text("brandId") == brand.id }.count) apparaten").font(.subheadline).foregroundStyle(.secondary)
+                        let count = store.machines.filter { $0.text("brandId") == brand.id }.count
+                        Text("\(count) \(count == 1 ? "apparaat" : "apparaten")").font(.subheadline).foregroundStyle(.secondary)
                     }.padding(.vertical, 5)
                 }
                 .swipeActions {
@@ -150,7 +151,8 @@ struct MachineScreen: View {
                 NavigationLink { MachineDetailScreen(machineID: machine.id) } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(machine.name).font(.headline)
-                        Text("\(store.sets.filter { $0.text("machineId") == machine.id }.count) sets").font(.subheadline).foregroundStyle(.secondary)
+                        let count = store.sets.filter { $0.text("machineId") == machine.id }.count
+                        Text("\(count) \(count == 1 ? "set" : "sets")").font(.subheadline).foregroundStyle(.secondary)
                         if !machine.text("note").isEmpty { Text(machine.text("note")).font(.footnote).foregroundStyle(.secondary) }
                     }.padding(.vertical, 4)
                 }
@@ -186,6 +188,11 @@ struct MachineScreen: View {
 struct TrainingChart: View {
     let points: [WorkoutPoint]
     let label: String
+    private var dateStride: Int {
+        let range = WorkoutMetrics.dateRange(points.map(\.date))
+        let days = Calendar.current.dateComponents([.day], from: range.lowerBound, to: range.upperBound).day ?? 1
+        return max(1, (days + 3) / 4)
+    }
     var body: some View {
         if points.isEmpty {
             Text("Je grafiek verschijnt zodra er gegevens voor deze selectie zijn.").foregroundStyle(.secondary).padding(.vertical, 24)
@@ -198,7 +205,7 @@ struct TrainingChart: View {
             }
             .chartYScale(domain: WorkoutMetrics.valueRange(points.map(\.value)))
             .chartXScale(domain: WorkoutMetrics.dateRange(points.map(\.date)))
-            .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { value in AxisGridLine(); AxisValueLabel(format: .dateTime.day().month(.abbreviated)) } }
+            .chartXAxis { AxisMarks(values: .stride(by: .day, count: dateStride)) { _ in AxisGridLine(); AxisValueLabel(format: .dateTime.day().month(.abbreviated)) } }
             .frame(height: 200).padding(.vertical, 8).accessibilityLabel(label)
         }
     }
@@ -316,7 +323,7 @@ struct RecentScreen: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(day.date.formatted(date: .abbreviated, time: .omitted)).font(.headline)
-                        Text("\(day.entries.count) sets").font(.subheadline).foregroundStyle(.secondary)
+                        Text("\(day.entries.count) \(day.entries.count == 1 ? "set" : "sets")").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
             }

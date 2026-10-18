@@ -142,7 +142,7 @@ struct PhoneSettingsScreen: View {
                 Button { importing = true } label: { Label("Importeer data", systemImage: "square.and.arrow.down") }.disabled(working)
                 if working { ProgressView("Back-up verwerken…") }
             } header: { Text("Back-up") } footer: {
-                Text("Back-ups zijn uitwisselbaar met de PWA. Import voegt gegevens samen; bestaande record-ID’s worden bijgewerkt. Je andere gegevens blijven staan.")
+                Text("Back-ups zijn uitwisselbaar met de PWA. Import voegt gegevens samen; bestaande vermeldingen uit de back-up worden bijgewerkt. Je andere gegevens blijven staan.")
             }
             Section("Apple Watch") {
                 Text(store.watchError ? "Watch-uitwisseling is niet voltooid. De sets blijven bewaard; probeer opnieuw." : "Merken, apparaten en sets worden met je gekoppelde Watch uitgewisseld.").font(.footnote).foregroundStyle(.secondary)

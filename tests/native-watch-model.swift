@@ -33,6 +33,12 @@ struct WatchModelTests {
         precondition(restored.records == replica.records && restored.restUntil == replica.restUntil)
         let invalid = WorkoutEnvelope(version: 2, key: first.key, kind: first.kind, id: first.id, revision: first.revision, deleted: false, value: first.value)
         do { _ = try invalid.watchSet(); fatalError("Future schema accepted") } catch {}
+        var zero = set
+        zero.weight = 0; zero.reps = 0
+        let phoneEdit = WorkoutEnvelope(version: 1, key: first.key, kind: first.kind, id: first.id,
+            revision: deletion.tombstone().revision, deleted: false, value: String(decoding: try JSONEncoder().encode(zero), as: UTF8.self))
+        try replica.receive(WatchPacket(generation: 5, snapshot: WatchSnapshot(watchRecords: [phoneEdit])))
+        precondition(replica.lastSet("m1")?.reps == 0, "A zero-value phone edit must not block the Watch snapshot")
         print("Native Watch replay, acknowledgement, deletion and legacy data tests passed")
     }
 }

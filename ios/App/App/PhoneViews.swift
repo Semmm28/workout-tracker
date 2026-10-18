@@ -67,8 +67,8 @@ struct PhoneRootView: View {
                 HStack {
                     Text(notice).font(.subheadline)
                     Spacer()
-                    if store.undoRecords != nil { Button("Herstel") { Task { await store.undo() } }.accessibilityLabel("Verwijdering ongedaan maken") }
-                    Button { store.notice = nil } label: { Image(systemName: "xmark") }.accessibilityLabel("Melding sluiten")
+                    if store.undoRecords != nil { Button { Task { await store.undo() } } label: { Text("Herstel").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("Verwijdering ongedaan maken") }
+                    Button { store.notice = nil } label: { Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44) }.accessibilityLabel("Melding sluiten")
                 }.padding().background(WorkoutStyle.surface).accessibilityElement(children: .contain)
             }
         }

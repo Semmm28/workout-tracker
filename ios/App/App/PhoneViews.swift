@@ -188,7 +188,7 @@ struct TrainingChart: View {
     let label: String
     var body: some View {
         if points.isEmpty {
-            Text("Je grafiek verschijnt zodra er sets voor deze selectie zijn.").foregroundStyle(.secondary).padding(.vertical, 24)
+            Text("Je grafiek verschijnt zodra er gegevens voor deze selectie zijn.").foregroundStyle(.secondary).padding(.vertical, 24)
         } else {
             Chart(points) { point in
                 LineMark(x: .value("Datum", point.date), y: .value(label, point.value)).foregroundStyle(WorkoutStyle.accent)
@@ -196,7 +196,8 @@ struct TrainingChart: View {
                     .accessibilityLabel(point.date.formatted(date: .abbreviated, time: .omitted))
                     .accessibilityValue("\(WorkoutStyle.value(point.value)) \(label)")
             }
-            .chartYScale(domain: .automatic(includesZero: false))
+            .chartYScale(domain: WorkoutMetrics.valueRange(points.map(\.value)))
+            .chartXScale(domain: WorkoutMetrics.dateRange(points.map(\.date)))
             .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { value in AxisGridLine(); AxisValueLabel(format: .dateTime.day().month(.abbreviated)) } }
             .frame(height: 200).padding(.vertical, 8).accessibilityLabel(label)
         }
@@ -221,7 +222,8 @@ struct SetSummary: View {
             if personalRecord { Label("Persoonlijk record · e1RM", systemImage: "trophy.fill").font(.caption).foregroundStyle(WorkoutStyle.accent) }
             if let rpe = record.fields["rpe"]?.number { Text("RPE \(WorkoutStyle.value(rpe))").font(.caption).foregroundStyle(.secondary) }
             if !record.text("notes").isEmpty { Text(record.text("notes")).font(.subheadline).foregroundStyle(.secondary) }
-        }.padding(.vertical, 5).accessibilityElement(children: .combine)
+        }.padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle()).accessibilityElement(children: .combine)
     }
     private var numbers: some View { Text("\(WorkoutStyle.value(record.number("weight"))) kg × \(WorkoutStyle.value(record.number("reps")))").font(.title3.weight(.semibold)).monospacedDigit().foregroundStyle(.primary) }
     private var volume: some View { Text("\(WorkoutStyle.value(record.volume)) kg volume").font(.caption).foregroundStyle(.secondary).monospacedDigit() }
@@ -344,7 +346,7 @@ struct BodyweightScreen: View {
                     .swipeActions { Button("Verwijder", role: .destructive) { Task { await store.remove(kind: "bodyweights", id: row.id) } } }
                 }
             }
-        }.navigationTitle("Lichaamsgewicht")
+        }.navigationTitle("Gewicht").navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editor) { WorkoutEditor(request: $0) }
         .scrollContentBackground(.hidden).background(WorkoutStyle.background)
     }

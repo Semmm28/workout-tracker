@@ -46,8 +46,18 @@ final class PhoneUITests: XCTestCase {
         app.buttons["save-top"].tap()
         let zero = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "0 kg × 8")).firstMatch
         XCTAssertTrue(zero.waitForExistence(timeout: 5))
+        let setID = zero.identifier
         zero.tap()
         XCTAssertTrue(weight.waitForExistence(timeout: 5)); XCTAssertTrue((weight.value as? String ?? "").hasPrefix("0"))
+        weight.tap()
+        weight.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        weight.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (weight.value as? String ?? "").count))
+        weight.typeText("2,5")
+        app.buttons["save-top"].tap()
+        let changed = app.buttons[setID]
+        XCTAssertTrue(changed.waitForExistence(timeout: 5)); XCTAssertTrue(changed.label.contains("2,5 kg × 8"))
+        changed.tap()
+        XCTAssertTrue(weight.waitForExistence(timeout: 5))
         app.buttons["Annuleer"].tap()
         app.tabBars.buttons["Recent"].tap(); shot("Recent activity")
         app.tabBars.buttons["Instellingen"].tap()

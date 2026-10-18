@@ -270,6 +270,16 @@ actor PhoneRepository {
 struct WorkoutDay: Identifiable { let date: Date; let entries: [WorkoutRecord]; var id: Date { date } }
 struct WorkoutPoint: Identifiable { let id: String; let date: Date; let value: Double }
 enum WorkoutMetrics {
+    static func valueRange(_ values: [Double]) -> ClosedRange<Double> {
+        guard let low = values.min(), let high = values.max() else { return 0...1 }
+        let padding = high > low ? (high - low) * 0.1 : max(abs(low) * 0.05, 1)
+        return (low >= 0 ? max(0, low - padding) : low - padding)...(high + padding)
+    }
+    static func dateRange(_ dates: [Date]) -> ClosedRange<Date> {
+        guard let first = dates.min(), let last = dates.max() else { return Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 86400) }
+        if first != last { return first...last }
+        return (Calendar.current.date(byAdding: .day, value: -1, to: first) ?? first.addingTimeInterval(-86400))...(Calendar.current.date(byAdding: .day, value: 1, to: last) ?? last.addingTimeInterval(86400))
+    }
     static func chronological(_ a: WorkoutRecord, _ b: WorkoutRecord) -> Bool {
         if a.date != b.date { return a.date < b.date }
         let ac = WatchSet.date(a.text("createdAt")) ?? .distantFuture

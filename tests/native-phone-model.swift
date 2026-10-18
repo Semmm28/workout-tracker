@@ -42,6 +42,12 @@ import Foundation
         precondition(WorkoutMetrics.records(sets) == Set(["s1","s2"]))
         precondition(WorkoutMetrics.chart(sets, mode: "set2").map(\.id) == ["s2"])
         precondition(WorkoutMetrics.chart(sets, mode: "volumeMax").first?.value == 800)
+        for values in [[0.0], [80.5], [70.0, 80.0], [-1.0]] {
+            let range = WorkoutMetrics.valueRange(values)
+            precondition(range.lowerBound < range.upperBound && values.allSatisfy(range.contains), "A constant chart must keep an increasing scale that contains every value")
+        }
+        let dateRange = WorkoutMetrics.dateRange([sets[0].date])
+        precondition(dateRange.lowerBound < sets[0].date && dateRange.upperBound > sets[0].date)
         let late = WorkoutEnvelope(version: 1, key: "sets:s1", kind: "sets", id: "s1", revision: "0000000000000001-old", deleted: true, value: nil)
         snapshot = try await repo.merge([late])
         precondition(snapshot.rows("sets").count == 3, "Stale sync must not erase newer data")

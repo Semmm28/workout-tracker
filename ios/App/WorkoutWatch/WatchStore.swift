@@ -13,7 +13,6 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published private(set) var saving = false
     private let repository = WatchRepository()
     private var refreshing = false
-    private var sending = false
     var replica: WatchReplica { data.replica }
 
     override init() {
@@ -118,10 +117,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func sendPending() {
-        guard !sending else { return }
-        sending = true
         Task {
-            defer { sending = false }
             // Encoding and queuing an offline backlog must not monopolize the UI.
             await repository.sendPending()
         }

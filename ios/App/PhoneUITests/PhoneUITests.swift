@@ -82,4 +82,29 @@ final class PhoneUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Meting toevoegen"].waitForExistence(timeout: 5))
         shot("Large text bodyweight")
     }
+    func testLargeHistorySaveAndScroll() {
+        let app = launch("--ui-test-large-history")
+        app.staticTexts["Testhistorie"].tap()
+        XCTAssertTrue(app.staticTexts["Apparaat 00"].waitForExistence(timeout: 5))
+        app.swipeUp(); app.swipeDown()
+        app.staticTexts["Apparaat 00"].tap()
+        let addButton = app.buttons["Set toevoegen"].firstMatch
+        XCTAssertTrue(addButton.waitForExistence(timeout: 5))
+        app.swipeUp(); app.swipeUp(); app.swipeDown()
+        addButton.tap()
+        let weight = app.textFields["set-weight"], reps = app.textFields["set-reps"]
+        XCTAssertTrue(weight.waitForExistence(timeout: 5))
+        weight.tap(); weight.typeText("12,5"); reps.tap(); reps.typeText("8")
+        let start = Date()
+        app.buttons["save-top"].tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: weight)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 3), .completed, "Saving must dismiss the form promptly with 5000 sets")
+        let elapsed = Date().timeIntervalSince(start)
+        let timing = XCTAttachment(string: String(format: "5000-set simulator save and dismissal: %.3fs", elapsed))
+        timing.name = "Large history save timing"; timing.lifetime = .keepAlways; add(timing)
+        app.tabBars.buttons["Recent"].tap()
+        XCTAssertTrue(app.navigationBars["Recent"].waitForExistence(timeout: 3))
+        app.swipeUp(); app.swipeDown()
+        shot("5000 sets - recent history")
+    }
 }

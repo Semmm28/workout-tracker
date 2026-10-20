@@ -102,7 +102,7 @@ struct BrandScreen: View {
                 NavigationLink { MachineScreen(brandID: brand.id) } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(brand.name).font(.headline)
-                        let count = store.machines.filter { $0.text("brandId") == brand.id }.count
+                        let count = store.data.machinesByBrand[brand.id]?.count ?? 0
                         Text("\(count) \(count == 1 ? "apparaat" : "apparaten")").font(.subheadline).foregroundStyle(.secondary)
                     }.padding(.vertical, 5)
                 }
@@ -138,9 +138,9 @@ struct MachineScreen: View {
     @State private var search = ""
     @State private var editor: EditRequest?
     @State private var deletion: WorkoutRecord?
-    private var all: [WorkoutRecord] { store.machines.filter { $0.text("brandId") == brandID } }
+    private var all: [WorkoutRecord] { store.data.machinesByBrand[brandID] ?? [] }
     private var visible: [WorkoutRecord] { all.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) } }
-    private var brand: WorkoutRecord? { store.brands.first { $0.id == brandID } }
+    private var brand: WorkoutRecord? { store.data.brandsByID[brandID] }
     var body: some View {
         List {
             if visible.isEmpty {
@@ -151,7 +151,7 @@ struct MachineScreen: View {
                 NavigationLink { MachineDetailScreen(machineID: machine.id) } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(machine.name).font(.headline)
-                        let count = store.sets.filter { $0.text("machineId") == machine.id }.count
+                        let count = store.data.setsByMachine[machine.id]?.count ?? 0
                         Text("\(count) \(count == 1 ? "set" : "sets")").font(.subheadline).foregroundStyle(.secondary)
                         if !machine.text("note").isEmpty { Text(machine.text("note")).font(.footnote).foregroundStyle(.secondary) }
                     }.padding(.vertical, 4)
@@ -185,7 +185,7 @@ struct MachineScreen: View {
     }
 }
 
-struct TrainingChart: View {
+struct TrainingChart: View, Equatable {
     let points: [WorkoutPoint]
     let label: String
     private var dateStride: Int {
@@ -211,7 +211,7 @@ struct TrainingChart: View {
     }
 }
 
-struct SetSummary: View {
+struct SetSummary: View, Equatable {
     let record: WorkoutRecord
     let index: Int?
     let personalRecord: Bool
@@ -240,8 +240,9 @@ struct MachineDetailScreen: View {
     @EnvironmentObject private var store: PhoneStore
     let machineID: String
     @State private var editor: EditRequest?
-    private var machine: WorkoutRecord? { store.machines.first { $0.id == machineID } }
-    private var entries: [WorkoutRecord] { store.sets.filter { $0.text("machineId") == machineID } }
+    private var machine: WorkoutRecord? { store.data.machinesByID[machineID] }
+    private var entries: [WorkoutRecord] { store.data.setsByMachine[machineID] ?? [] }
+    private var history: WorkoutHistory { store.data.histories[machineID] ?? WorkoutHistory() }
     var body: some View {
         List {
             if let machine {
@@ -254,14 +255,13 @@ struct MachineDetailScreen: View {
                         Text("Tweede set · e1RM").tag("set2")
                         Text("Derde set · e1RM").tag("set3")
                     }.pickerStyle(.menu)
-                    TrainingChart(points: WorkoutMetrics.chart(entries, mode: store.snapshot.chartMode), label: store.snapshot.chartMode == "volumeMax" ? "Volume (kg)" : "e1RM (kg)")
+                    TrainingChart(points: history.points, label: store.snapshot.chartMode == "volumeMax" ? "Volume (kg)" : "e1RM (kg)").equatable()
                 }
-                let prs = WorkoutMetrics.records(entries)
-                ForEach(WorkoutMetrics.days(entries)) { day in
+                ForEach(history.days) { day in
                     Section(day.date.formatted(date: .abbreviated, time: .omitted)) {
                         ForEach(day.entries) { entry in
                             Button { editor = EditRequest(kind: "sets", record: entry) } label: {
-                                SetSummary(record: entry, index: day.entries.firstIndex(where: { $0.id == entry.id }).map { $0 + 1 }, personalRecord: prs.contains(entry.id))
+                                SetSummary(record: entry, index: day.entries.firstIndex(where: { $0.id == entry.id }).map { $0 + 1 }, personalRecord: history.records.contains(entry.id)).equatable()
                             }.buttonStyle(.plain).accessibilityIdentifier("set-\(entry.id)")
                             .swipeActions {
                                 Button("Verwijder", role: .destructive) { Task { await store.remove(kind: "sets", id: entry.id) } }
@@ -308,13 +308,13 @@ struct RecentScreen: View {
     var body: some View {
         List {
             if store.sets.isEmpty { WorkoutEmptyState(title: "Nog geen workouts", message: "Je gelogde sets verschijnen hier per dag.") }
-            ForEach(WorkoutMetrics.days(store.sets)) { day in
+            ForEach(store.data.recentDays) { day in
                 DisclosureGroup(isExpanded: Binding(get: { expanded.contains(day.id) }, set: { if $0 { expanded.insert(day.id) } else { expanded.remove(day.id) } })) {
                     ForEach(day.entries) { row in
                         NavigationLink { MachineDetailScreen(machineID: row.text("machineId")) } label: {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(store.machineName(row)).font(.headline)
-                                if let machine = store.machines.first(where: { $0.id == row.text("machineId") }) { Text(store.brandName(machine)).font(.caption).foregroundStyle(.secondary) }
+                                if let machine = store.data.machinesByID[row.text("machineId")] { Text(store.brandName(machine)).font(.caption).foregroundStyle(.secondary) }
                                 Text("\(WorkoutStyle.value(row.number("weight"))) kg × \(WorkoutStyle.value(row.number("reps")))").monospacedDigit()
                                 Text(row.date, style: .time).font(.caption).foregroundStyle(.secondary)
                             }.padding(.vertical, 5)
@@ -341,7 +341,7 @@ struct BodyweightScreen: View {
                 Button { editor = EditRequest(kind: "bodyweights") } label: { Label("Meting toevoegen", systemImage: "plus.circle.fill") }
             }
             Section("Verloop lichaamsgewicht") {
-                TrainingChart(points: store.bodyweights.filter { $0.date != .distantPast }.map { WorkoutPoint(id: $0.id, date: $0.date, value: $0.number("weight")) }, label: "Gewicht (kg)")
+                TrainingChart(points: store.data.bodyweightPoints, label: "Gewicht (kg)").equatable()
             }
             Section("Metingen") {
                 if store.bodyweights.isEmpty { WorkoutEmptyState(title: "Nog geen metingen", message: "Voeg je gewicht toe om het verloop bij te houden.") }

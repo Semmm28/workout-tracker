@@ -181,7 +181,11 @@ struct PhoneSettingsScreen: View {
     }
     private var cloudSupported: Bool { if #available(iOS 17, *) { return true }; return false }
     private func export() {
-        do { document = WorkoutBackupDocument(data: try store.exportBackup()); exporting = true }
-        catch { store.error = "De back-up kon niet worden gemaakt. Probeer opnieuw." }
+        working = true
+        Task {
+            defer { working = false }
+            do { document = WorkoutBackupDocument(data: try await store.exportBackup()); exporting = true }
+            catch { store.error = "De back-up kon niet worden gemaakt. Probeer opnieuw." }
+        }
     }
 }

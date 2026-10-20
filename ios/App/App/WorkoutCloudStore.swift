@@ -165,6 +165,7 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
     }
 
     func exchange(owner: String, changes: String) async throws -> [String: Any] {
+        guard !diskFailed else { throw WorkoutCloudError(code: "storage") }
         guard replica.enabled, !owner.isEmpty, owner == replica.owner else { throw WorkoutCloudError(code: "account-changed") }
         guard let data = changes.data(using: .utf8) else { throw WorkoutCloudError(code: "schema") }
         let incoming = try JSONDecoder().decode([WorkoutEnvelope].self, from: data)
@@ -180,7 +181,7 @@ actor WorkoutCloudStore: CKSyncEngineDelegate {
             }
         }
         // This acknowledgement means durable native storage, not cloud upload.
-        if !incoming.isEmpty { try commit(next) }
+        if edited { try commit(next) }
         if edited && problem == "record-too-large" { problem = nil }
         do {
             _ = try await account(expected: owner)

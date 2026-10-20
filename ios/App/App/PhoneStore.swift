@@ -7,11 +7,12 @@ final class PhoneStore: ObservableObject {
     static let shared = PhoneStore()
     enum Phase { case loading, migrating, ready, failed }
     @Published private(set) var phase = Phase.loading
-    @Published private(set) var snapshot = PhoneSnapshot()
-    @Published private(set) var brands: [WorkoutRecord] = []
-    @Published private(set) var machines: [WorkoutRecord] = []
-    @Published private(set) var sets: [WorkoutRecord] = []
-    @Published private(set) var bodyweights: [WorkoutRecord] = []
+    @Published private(set) var data = PhonePresentation()
+    var snapshot: PhoneSnapshot { data.snapshot }
+    var brands: [WorkoutRecord] { data.brands }
+    var machines: [WorkoutRecord] { data.machines }
+    var sets: [WorkoutRecord] { data.sets }
+    var bodyweights: [WorkoutRecord] { data.bodyweights }
     @Published private(set) var cloudEnabled = false
     @Published private(set) var cloudCode = "disabled"
     @Published private(set) var syncBusy = false
@@ -31,7 +32,7 @@ final class PhoneStore: ObservableObject {
         do {
             var url = try WatchFiles.url("phone-native-v1.json")
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--ui-test-empty") || ProcessInfo.processInfo.arguments.contains("--ui-test-migration") {
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-empty") || ProcessInfo.processInfo.arguments.contains("--ui-test-migration") || ProcessInfo.processInfo.arguments.contains("--ui-test-large-history") {
                 url = try WatchFiles.url("phone-ui-test-v1.json")
                 if ProcessInfo.processInfo.arguments.contains("--ui-test-reset") { try? FileManager.default.removeItem(at: url) }
             }
@@ -43,8 +44,9 @@ final class PhoneStore: ObservableObject {
             if ProcessInfo.processInfo.arguments.contains("--ui-test-empty"), !(await repo.read()).migrated {
                 _ = try await repo.migrate(Data("{\"backup\":{\"version\":1},\"journal\":[],\"owner\":\"\",\"chartMode\":\"e1rmMax\"}".utf8))
             }
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-large-history") { try await repo.seedLargeTestHistory() }
             #endif
-            apply(await repo.read())
+            await reload()
             phase = snapshot.migrated ? .ready : .migrating
             observe()
             if phase == .ready { await refresh(manual: true) }
@@ -57,22 +59,16 @@ final class PhoneStore: ObservableObject {
     }
     func migrated(_ data: Data) async throws {
         guard let repository else { throw PhoneDataError.notReady }
-        apply(try await repository.migrate(data)); phase = .ready
+        _ = try await repository.migrate(data); await reload(); phase = .ready
         Task { await refresh(manual: true) }
     }
     func migrationFailed() { phase = .failed; error = "Je bestaande gegevens konden niet worden overgenomen. Ze zijn niet verwijderd. Probeer opnieuw." }
-    private func apply(_ next: PhoneSnapshot) {
-        guard next != snapshot || phase == .loading else { return }
-        snapshot = next
-        let backup = next.backup()
-        if brands != backup.brands { brands = backup.brands }
-        let brandIDs = Set(backup.brands.map(\.id))
-        let visibleMachines = backup.machines.filter { brandIDs.contains($0.text("brandId")) }
-        if machines != visibleMachines { machines = visibleMachines }
-        let machineIDs = Set(visibleMachines.map(\.id))
-        let visibleSets = backup.sets.filter { machineIDs.contains($0.text("machineId")) }
-        if sets != visibleSets { sets = visibleSets }
-        if bodyweights != backup.bodyweights { bodyweights = backup.bodyweights }
+    private func reload() async {
+        guard let repository else { return }
+        let next = await repository.presentation()
+        // A later save may finish while an earlier refresh is suspended.
+        guard next.generation > data.generation || (phase == .loading && next.generation == data.generation) else { return }
+        data = next
     }
     private func observe() {
         guard observers.isEmpty else { return }
@@ -90,41 +86,45 @@ final class PhoneStore: ObservableObject {
     }
     func save(kind: String, row: WorkoutRecord, existing: Bool) async throws {
         guard let repository else { throw PhoneDataError.notReady }
-        apply(try await repository.save(kind: kind, record: row, existing: existing))
+        _ = try await repository.save(kind: kind, record: row, existing: existing)
+        await reload()
         Task { await refresh() }
     }
     func remove(kind: String, id: String) async {
         guard let repository else { return }
         do {
-            let (next, removed) = try await repository.remove(kind: kind, id: id)
-            apply(next); undoRecords = removed; notice = "Verwijderd"
+            let (_, removed) = try await repository.remove(kind: kind, id: id)
+            await reload(); undoRecords = removed; notice = "Verwijderd"
             Task { await refresh() }
         } catch { self.error = PhoneDataError.storage.localizedDescription }
     }
     func undo() async {
         guard let repository, let rows = undoRecords else { return }
-        do { apply(try await repository.restore(rows)); undoRecords = nil; notice = nil; Task { await refresh() } }
+        do { _ = try await repository.restore(rows); await reload(); undoRecords = nil; notice = nil; Task { await refresh() } }
         catch { self.error = PhoneDataError.storage.localizedDescription }
     }
     func reorder(kind: String, ids: [String]) async {
         guard let repository else { return }
-        do { apply(try await repository.reorder(kind: kind, ids: ids)); Task { await refresh() } }
+        do { _ = try await repository.reorder(kind: kind, ids: ids); await reload(); Task { await refresh() } }
         catch { self.error = PhoneDataError.storage.localizedDescription }
     }
     func setChartMode(_ mode: String) async {
         guard let repository else { return }
-        do { apply(try await repository.preference(mode)) } catch { self.error = PhoneDataError.storage.localizedDescription }
+        do { _ = try await repository.preference(mode); await reload() } catch { self.error = PhoneDataError.storage.localizedDescription }
     }
     func importBackup(_ data: Data) async throws {
         guard let repository else { throw PhoneDataError.notReady }
-        do { apply(try await repository.importBackup(data)); notice = "Back-up geïmporteerd"; undoRecords = nil; Task { await refresh() } }
+        do { _ = try await repository.importBackup(data); await reload(); notice = "Back-up geïmporteerd"; undoRecords = nil; Task { await refresh() } }
         catch let error as PhoneDataError { throw error }
         catch is DecodingError { throw PhoneDataError.invalidBackup }
         catch { throw PhoneDataError.storage }
     }
-    func exportBackup() throws -> Data { try PhoneSnapshot.encoder().encode(snapshot.backup()) }
-    func brandName(_ machine: WorkoutRecord) -> String { brands.first { $0.id == machine.text("brandId") }?.name ?? "Onbekend merk" }
-    func machineName(_ entry: WorkoutRecord) -> String { machines.first { $0.id == entry.text("machineId") }?.name ?? "Verwijderd apparaat" }
+    func exportBackup() async throws -> Data {
+        guard let repository else { throw PhoneDataError.notReady }
+        return try await repository.exportBackup()
+    }
+    func brandName(_ machine: WorkoutRecord) -> String { data.brandsByID[machine.text("brandId")]?.name ?? "Onbekend merk" }
+    func machineName(_ entry: WorkoutRecord) -> String { data.machinesByID[entry.text("machineId")]?.name ?? "Verwijderd apparaat" }
 
     func refresh(manual: Bool = false) async {
         guard phase == .ready, let repository else { return }
@@ -133,12 +133,11 @@ final class PhoneStore: ObservableObject {
         do {
             WorkoutWatchBridge.shared.start()
             let pending = try WorkoutWatchBridge.shared.pending()
-            let entries = try JSONDecoder().decode([WorkoutEnvelope].self, from: Data(pending.utf8))
-            for entry in entries { _ = try entry.watchSet() }
-            apply(try await repository.merge(entries))
-            try publishWatch(acknowledgements: pending)
-            watchError = false
-        } catch { watchError = true }
+            try await repository.mergeJSON(pending, fromWatch: true)
+            await reload()
+            try await publishWatch(acknowledgements: pending)
+            if watchError { watchError = false }
+        } catch { if !watchError { watchError = true } }
         if #available(iOS 17, *) {
             do {
                 let cloud = WorkoutCloudStore.shared
@@ -147,33 +146,28 @@ final class PhoneStore: ObservableObject {
                 if cloudEnabled {
                     let owner = status["owner"] as? String ?? ""
                     guard !owner.isEmpty, snapshot.owner.isEmpty || snapshot.owner == owner else { throw PhoneDataError.account }
-                    apply(try await repository.merge([], owner: owner))
+                    _ = try await repository.merge([], owner: owner); await reload()
                     try await exchangeCloud(owner: owner)
                     if manual { updateCloud(await cloud.synchronize()); try await exchangeCloud(owner: owner) }
-                    try? publishWatch(acknowledgements: "[]")
+                    try? await publishWatch(acknowledgements: "[]")
                 }
             } catch { cloudCode = error is PhoneDataError ? "account-changed" : "error" }
         } else { cloudCode = "unsupported" }
         syncBusy = false
         if refreshAgain { refreshAgain = false; Task { await refresh() } }
     }
-    private func publishWatch(acknowledgements: String) throws {
-        var watch = WatchSnapshot()
-        watch.brands = brands.map { WatchBrand(id: $0.id, name: $0.name) }
-        watch.machines = machines.map { WatchMachine(id: $0.id, name: $0.name, brandId: $0.text("brandId")) }
-        watch.lastSets = machines.compactMap { machine in
-            guard let last = sets.filter({ $0.text("machineId") == machine.id }).max(by: { $0.date < $1.date }) else { return nil }
-            return try? JSONDecoder().decode(WatchSet.self, from: PhoneSnapshot.encoder().encode(last))
-        }
-        watch.watchRecords = snapshot.records.values.filter { $0.kind == "sets" && $0.id.hasPrefix("watch-") }.sorted { $0.key < $1.key }
-        try WorkoutWatchBridge.shared.publish(snapshot: String(decoding: PhoneSnapshot.encoder().encode(watch), as: UTF8.self), acknowledgements: acknowledgements)
+    private func publishWatch(acknowledgements: String) async throws {
+        guard let repository else { return }
+        let text = try await repository.watchSnapshot()
+        try WorkoutWatchBridge.shared.publish(snapshot: text, acknowledgements: acknowledgements)
     }
     @available(iOS 17, *)
     private func exchangeCloud(owner: String) async throws {
         guard let repository else { return }
-        let response = try await WorkoutCloudStore.shared.exchange(owner: owner, changes: String(decoding: PhoneSnapshot.encoder().encode(Array(snapshot.records.values)), as: UTF8.self))
+        let changes = try await repository.cloudChanges()
+        let response = try await WorkoutCloudStore.shared.exchange(owner: owner, changes: changes)
         guard response["owner"] as? String == owner, let text = response["changes"] as? String else { throw PhoneDataError.account }
-        apply(try await repository.merge(JSONDecoder().decode([WorkoutEnvelope].self, from: Data(text.utf8)), owner: owner))
+        try await repository.mergeJSON(text, owner: owner); await reload()
         if let status = response["status"] as? [String: Any] { updateCloud(status) }
     }
     func setCloudEnabled(_ enabled: Bool) async {
@@ -184,14 +178,18 @@ final class PhoneStore: ObservableObject {
             if enabled {
                 let status = try await cloud.enable(expectedOwner: snapshot.owner)
                 guard let owner = status["owner"] as? String, !owner.isEmpty else { throw PhoneDataError.account }
-                apply(try await repository.merge([], owner: owner)); updateCloud(status)
+                _ = try await repository.merge([], owner: owner); await reload(); updateCloud(status)
                 UIApplication.shared.registerForRemoteNotifications()
             } else { updateCloud(try await cloud.disable()) }
         } catch { self.error = error is PhoneDataError ? error.localizedDescription : "iCloud kon niet worden gewijzigd. Controleer je account en verbinding." }
         syncBusy = false
         await refresh(manual: enabled)
     }
-    private func updateCloud(_ status: [String: Any]) { cloudEnabled = status["enabled"] as? Bool ?? false; cloudCode = status["code"] as? String ?? "error" }
+    private func updateCloud(_ status: [String: Any]) {
+        let enabled = status["enabled"] as? Bool ?? false, code = status["code"] as? String ?? "error"
+        if cloudEnabled != enabled { cloudEnabled = enabled }
+        if cloudCode != code { cloudCode = code }
+    }
     var cloudMessage: String {
         switch cloudCode {
         case "disabled": return "Je gegevens staan op deze iPhone."

@@ -36,3 +36,11 @@ Native writes are atomic. Failed imports and failed disk writes leave the previo
 Run `ios-testflight` on `ios-app`. It repeats the checks, including the added zero-repetition Watch regression, before archiving. Simulator tests use ad-hoc signing so CloudKit entitlements remain present. Distribution uses the existing Apple profiles and uploads the IPA with its Watch companion to App Store Connect. The project-wide Codemagic counter sets the build number; the marketing version is 0.2.0. Verify Apple's processing result after upload. This workflow does not submit an App Store review or assign tester groups.
 
 Physical iPhone/Watch communication, live multi-device iCloud exchange and the iOS 16 runtime are not tested here. Existing local changes in IOS-SETUP.md belong to the user and are excluded from this release.
+
+## 0.2.1 performance correction
+
+The reported slow saves and scrolling exposed history-dependent work on the main actor: decoding/sorting the full backup, repeatedly constructing date formatters during comparison, filtering every set for each machine row, and rebuilding day groups/PRs/charts in view bodies.
+
+The repository actor now prepares a cached presentation, reuses unchanged decoded records, and publishes one coherent update. Record dates are parsed once and invalidated when their source fields change. Counts, groups, PRs and chart points are read from the prepared presentation. Cloud/Watch payload preparation and backup encoding run on the repository actor. Identical cloud replays and unchanged Watch snapshots avoid unnecessary work and disk writes. Durable writes, conflict resolution and the version-1 backup format remain unchanged.
+
+Regression coverage now includes 5,000 sets across 30 machines: durable save and reopen, repeated cached reads, unchanged cloud replay, cached date mutation, all chart modes, cascade/undo invalidation, and a simulator save/scroll flow. The new native tests and release build must pass in Codemagic before upload; no physical-device timing is claimed.

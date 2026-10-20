@@ -17,6 +17,7 @@ struct WatchSet: Codable, Identifiable {
 
     var date: Date { Self.date(loggedAt) ?? .distantPast }
     static func date(_ text: String) -> Date? {
+        guard !text.isEmpty else { return nil }
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.date(from: text) ?? ISO8601DateFormatter().date(from: text)

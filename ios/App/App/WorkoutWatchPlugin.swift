@@ -37,6 +37,7 @@ final class WorkoutWatchBridge: NSObject, WCSessionDelegate {
         var next = state
         for entry in accepted where next.pending[entry.key] == entry { next.pending.removeValue(forKey: entry.key) }
         let changed = next.snapshot != snapshot
+        guard changed || next.pending != state.pending else { return }
         next.snapshot = snapshot
         if changed { next.generation = max(Date().timeIntervalSince1970 * 1000, next.generation + 1) }
         try WatchFiles.write(next, to: WatchFiles.url("phone-watch.json"))

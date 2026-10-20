@@ -215,6 +215,7 @@ struct SetSummary: View, Equatable {
     let record: WorkoutRecord
     let index: Int?
     let personalRecord: Bool
+    let showsVolume: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
@@ -223,8 +224,8 @@ struct SetSummary: View, Equatable {
                 Text(record.date, style: .time).font(.caption).foregroundStyle(.secondary)
             }
             ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline) { numbers; Spacer(); volume }
-                VStack(alignment: .leading, spacing: 6) { numbers; volume }
+                HStack(alignment: .firstTextBaseline) { numbers; Spacer(); metric }
+                VStack(alignment: .leading, spacing: 6) { numbers; metric }
             }
             if personalRecord { Label("Persoonlijk record · e1RM", systemImage: "trophy.fill").font(.caption).foregroundStyle(WorkoutStyle.accent) }
             if let rpe = record.fields["rpe"]?.number { Text("RPE \(WorkoutStyle.value(rpe))").font(.caption).foregroundStyle(.secondary) }
@@ -233,7 +234,7 @@ struct SetSummary: View, Equatable {
         .contentShape(Rectangle()).accessibilityElement(children: .combine)
     }
     private var numbers: some View { Text("\(WorkoutStyle.value(record.number("weight"))) kg × \(WorkoutStyle.value(record.number("reps")))").font(.title3.weight(.semibold)).monospacedDigit().foregroundStyle(.primary) }
-    private var volume: some View { Text("\(WorkoutStyle.value(record.volume)) kg volume").font(.caption).foregroundStyle(.secondary).monospacedDigit() }
+    private var metric: some View { Text("\(WorkoutStyle.value(showsVolume ? record.volume : record.e1rm)) kg \(showsVolume ? "volume" : "e1RM")").font(.caption).foregroundStyle(.secondary).monospacedDigit() }
 }
 
 struct MachineDetailScreen: View {
@@ -243,6 +244,7 @@ struct MachineDetailScreen: View {
     private var machine: WorkoutRecord? { store.data.machinesByID[machineID] }
     private var entries: [WorkoutRecord] { store.data.setsByMachine[machineID] ?? [] }
     private var history: WorkoutHistory { store.data.histories[machineID] ?? WorkoutHistory() }
+    private var showsVolume: Bool { store.snapshot.chartMode == "volumeMax" }
     var body: some View {
         List {
             if let machine {
@@ -254,14 +256,14 @@ struct MachineDetailScreen: View {
                         Text("Eerste set · e1RM").tag("set1")
                         Text("Tweede set · e1RM").tag("set2")
                         Text("Derde set · e1RM").tag("set3")
-                    }.pickerStyle(.menu)
-                    TrainingChart(points: history.points, label: store.snapshot.chartMode == "volumeMax" ? "Volume (kg)" : "e1RM (kg)").equatable()
+                    }.pickerStyle(.menu).accessibilityIdentifier("chart-mode")
+                    TrainingChart(points: history.points, label: showsVolume ? "Volume (kg)" : "e1RM (kg)").equatable()
                 }
                 ForEach(history.days) { day in
                     Section(day.date.formatted(date: .abbreviated, time: .omitted)) {
                         ForEach(day.entries) { entry in
                             Button { editor = EditRequest(kind: "sets", record: entry) } label: {
-                                SetSummary(record: entry, index: day.entries.firstIndex(where: { $0.id == entry.id }).map { $0 + 1 }, personalRecord: history.records.contains(entry.id)).equatable()
+                                SetSummary(record: entry, index: day.entries.firstIndex(where: { $0.id == entry.id }).map { $0 + 1 }, personalRecord: history.records.contains(entry.id), showsVolume: showsVolume).equatable()
                             }.buttonStyle(.plain).accessibilityIdentifier("set-\(entry.id)")
                             .swipeActions {
                                 Button("Verwijder", role: .destructive) { Task { await store.remove(kind: "sets", id: entry.id) } }

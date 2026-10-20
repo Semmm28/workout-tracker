@@ -166,6 +166,22 @@ test('set rows expose the same accessible edit and delete menu for click and swi
   assert.match(markup, /data-action="delete-set"[^>]*tabindex="-1"/);
 });
 
+test('machine set values and accessible labels follow every chart mode without changing data', () => {
+  loadFixture();
+  state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };
+  const savedSets = JSON.stringify(state.sets);
+
+  for (const mode of ['e1rmMax', 'volumeMax', 'set1', 'set2', 'set3', 'volumeMax', 'e1rmMax']) {
+    state.preferences.chartSeriesMode = mode;
+    const markup = renderAppMarkup();
+    const label = mode === 'volumeMax' ? 'Volume' : 'e1RM';
+    const value = mode === 'volumeMax' ? '800' : '126.7';
+    assert.ok(markup.includes(`<span class="set-summary-label">${label}</span>\n            <strong>${value} kg</strong>`), mode);
+    assert.ok(markup.includes(`aria-label="Set 1, 100 kilograms, 8 repetitions, ${label} ${value} kilograms; show edit and delete actions"`), mode);
+    assert.equal(JSON.stringify(state.sets), savedSets);
+  }
+});
+
 test('machine history renders chronological e1RM trophies and optional RPE', () => {
   loadFixture();
   state.route = { screen: 'machineDetail', brandId: 'brand_1', machineId: 'machine_1' };

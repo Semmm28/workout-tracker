@@ -29,6 +29,36 @@ final class PhoneUITests: XCTestCase {
         app.launchArguments.removeAll { $0 == "--ui-test-reset" }; app.launch()
         XCTAssertTrue(app.staticTexts["Technogym"].waitForExistence(timeout: 20))
     }
+    func testSetSummaryFollowsChartMetric() {
+        let app = launch("--ui-test-migration")
+        app.staticTexts["Technogym"].tap()
+        app.staticTexts["Chest Press"].tap()
+        let row = app.buttons["set-fixture-set"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(row.label.contains("101,3 kg e1RM"))
+        for (selection, summary) in [
+            ("Hoogste volume per dag", "640 kg volume"),
+            ("Hoogste e1RM per dag", "101,3 kg e1RM"),
+            ("Eerste set · e1RM", "101,3 kg e1RM"),
+            ("Tweede set · e1RM", "101,3 kg e1RM"),
+            ("Derde set · e1RM", "101,3 kg e1RM"),
+            ("Hoogste volume per dag", "640 kg volume")
+        ] {
+            app.buttons["chart-mode"].tap()
+            app.buttons[selection].tap()
+            let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", summary), object: row)
+            XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+            XCTAssertTrue(row.label.contains("80 kg × 8"))
+        }
+        shot("Volume chart with matching set summary")
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-test-reset" }; app.launch()
+        XCTAssertTrue(app.staticTexts["Technogym"].waitForExistence(timeout: 20))
+        app.staticTexts["Technogym"].tap()
+        app.staticTexts["Chest Press"].tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(row.label.contains("640 kg volume"), "The persisted graph choice must also apply to set summaries after reopening")
+    }
     func testCreateEditZeroAndNativeNavigation() {
         let app = launch("--ui-test-empty")
         app.buttons["Merk toevoegen"].firstMatch.tap()

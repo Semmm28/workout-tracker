@@ -202,7 +202,11 @@ function renderSetRow(entry, setNumber, isPersonalRecord) {
   const rpe = String(entry.rpe ?? '').trim();
   if (rpe) optional.push(`<div class="tag-chip">RPE ${safeText(rpe)}</div>`);
   if (entry.notes) optional.push(`<div class="tag-chip">${safeText(entry.notes)}</div>`);
-  const e1rm = formatWeight(estimateE1rm(Number(entry.weight), Number(entry.reps)));
+  const showsVolume = chartSeriesModeMetric(state.preferences.chartSeriesMode) === 'volume';
+  const metricLabel = showsVolume ? 'Volume' : 'e1RM';
+  const metricValue = formatWeight(showsVolume
+    ? Number(entry.weight) * Number(entry.reps)
+    : estimateE1rm(Number(entry.weight), Number(entry.reps)));
 
   const content = `
     <div class="list-item set-card compact-set-card">
@@ -224,8 +228,8 @@ function renderSetRow(entry, setNumber, isPersonalRecord) {
             <strong>${safeText(entry.reps)}</strong>
           </div>
           <div class="set-summary-item set-summary-box">
-            <span class="set-summary-label">e1RM</span>
-            <strong>${safeText(e1rm)} kg</strong>
+            <span class="set-summary-label">${metricLabel}</span>
+            <strong>${safeText(metricValue)} kg</strong>
           </div>
         </div>
       </div>
@@ -234,7 +238,7 @@ function renderSetRow(entry, setNumber, isPersonalRecord) {
   `;
 
   return renderSwipeContainer('set', entry.id, content, false, {
-    label: `Set ${setNumber}, ${entry.weight} kilograms, ${entry.reps} repetitions, e1RM ${e1rm} kilograms`,
+    label: `Set ${setNumber}, ${entry.weight} kilograms, ${entry.reps} repetitions, ${metricLabel} ${metricValue} kilograms`,
   });
 }
 

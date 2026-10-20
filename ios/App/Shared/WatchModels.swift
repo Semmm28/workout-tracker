@@ -1,8 +1,8 @@
 import Foundation
 
-struct WatchBrand: Codable, Identifiable { let id: String; let name: String }
-struct WatchMachine: Codable, Identifiable { let id: String; let name: String; let brandId: String }
-struct WatchSet: Codable, Identifiable {
+struct WatchBrand: Codable, Identifiable, Equatable, Sendable { let id: String; let name: String }
+struct WatchMachine: Codable, Identifiable, Equatable, Sendable { let id: String; let name: String; let brandId: String }
+struct WatchSet: Codable, Identifiable, Equatable, Sendable {
     let id: String
     let machineId: String
     var weight: Double
@@ -12,10 +12,16 @@ struct WatchSet: Codable, Identifiable {
     var updatedAt: String?
     var notes: String?
     var rpe: Double?
+    let date: Date
 
     enum CodingKeys: String, CodingKey { case id, machineId, weight, reps, loggedAt, createdAt, updatedAt, notes, rpe }
 
-    var date: Date { Self.date(loggedAt) ?? .distantPast }
+    init(id: String, machineId: String, weight: Double, reps: Int, loggedAt: String,
+         createdAt: String? = nil, updatedAt: String? = nil, notes: String? = nil, rpe: Double? = nil) {
+        self.id = id; self.machineId = machineId; self.weight = weight; self.reps = reps
+        self.loggedAt = loggedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
+        self.notes = notes; self.rpe = rpe; self.date = Self.date(loggedAt) ?? .distantPast
+    }
     static func date(_ text: String) -> Date? {
         guard !text.isEmpty else { return nil }
         let formatter = ISO8601DateFormatter()
@@ -47,6 +53,7 @@ extension WatchSet {
         }
         reps = Int(count)
         loggedAt = try values.decode(String.self, forKey: .loggedAt)
+        date = Self.date(loggedAt) ?? .distantPast
         createdAt = try values.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try values.decodeIfPresent(String.self, forKey: .updatedAt)
         notes = try values.decodeIfPresent(String.self, forKey: .notes)
@@ -54,14 +61,14 @@ extension WatchSet {
     }
 }
 
-struct WatchSnapshot: Codable {
+struct WatchSnapshot: Codable, Equatable, Sendable {
     var version = 1
     var brands: [WatchBrand] = []
     var machines: [WatchMachine] = []
     var lastSets: [WatchSet] = []
     var watchRecords: [WorkoutEnvelope] = []
 }
-struct WatchPacket: Codable { let generation: Double; let snapshot: WatchSnapshot }
+struct WatchPacket: Codable, Sendable { let generation: Double; let snapshot: WatchSnapshot }
 
 enum WatchFiles {
     static func url(_ filename: String) throws -> URL {
@@ -85,14 +92,14 @@ extension WorkoutEnvelope {
         guard let value, let data = value.data(using: .utf8) else { throw WorkoutCloudError(code: "watch-schema") }
         let set = try JSONDecoder().decode(WatchSet.self, from: data)
         guard set.id == id, !set.machineId.isEmpty, set.weight.isFinite, (0...2000).contains(set.weight),
-              (0...1000).contains(set.reps), WatchSet.date(set.loggedAt) != nil else { throw WorkoutCloudError(code: "watch-schema") }
+              (0...1000).contains(set.reps), set.date != .distantPast else { throw WorkoutCloudError(code: "watch-schema") }
         return set
     }
 }
 
 // Shared by the Watch and its command-line tests. Acknowledgements use the
 // persisted phone revision so late/duplicate packets cannot erase a newer edit.
-struct WatchReplica: Codable {
+struct WatchReplica: Codable, Equatable, Sendable {
     var snapshot = WatchSnapshot()
     var generation: Double = 0
     var records: [String: WorkoutEnvelope] = [:]
@@ -105,8 +112,11 @@ struct WatchReplica: Codable {
     mutating func receive(_ packet: WatchPacket) throws {
         guard packet.snapshot.version == 1 else { throw WorkoutCloudError(code: "watch-version") }
         guard packet.generation >= generation else { return }
-        for envelope in packet.snapshot.watchRecords {
+        // Validate the whole packet before applying acknowledgements or edits.
+        for envelope in packet.snapshot.watchRecords where envelope != records[envelope.key] {
             _ = try envelope.watchSet()
+        }
+        for envelope in packet.snapshot.watchRecords {
             if envelope.isNewer(than: records[envelope.key]) { records[envelope.key] = envelope }
             if let local = pending[envelope.key], !local.isNewer(than: envelope) { pending.removeValue(forKey: envelope.key) }
         }
@@ -125,10 +135,95 @@ struct WatchReplica: Codable {
         pending[key] = envelope
     }
 
-    var sets: [WatchSet] { records.values.compactMap { try? $0.watchSet() }.sorted { $0.date > $1.date } }
-    func lastSet(_ machineId: String) -> WatchSet? {
-        // Prefer local records for matching IDs, including local deletions.
-        let remote = snapshot.lastSets.filter { $0.machineId == machineId && records["sets:\($0.id)"] == nil }
-        return (sets.filter { $0.machineId == machineId } + remote).max { $0.date < $1.date }
+}
+
+// Build once off the main actor; rendering a row must never decode the history.
+struct WatchPresentation: Sendable {
+    let replica: WatchReplica
+    let revision: Int
+    let calendar: Calendar
+    let day: Date
+    private var decoded: [String: WatchSet] = [:]
+    var sets: [WatchSet] = []
+    var today: [WatchSet] = []
+    var lastSets: [String: WatchSet] = [:]
+    var recentMachines: [WatchMachine] = []
+    var brandsByID: [String: WatchBrand] = [:]
+    var machinesByID: [String: WatchMachine] = [:]
+    var machinesByBrand: [String: [WatchMachine]] = [:]
+
+    init(replica: WatchReplica = WatchReplica(), revision: Int = 0, previous: WatchPresentation? = nil,
+         now: Date = Date(), calendar: Calendar = .current) {
+        self.replica = replica; self.revision = revision; self.calendar = calendar
+        day = calendar.startOfDay(for: now)
+        if let previous, previous.replica.records == replica.records {
+            decoded = previous.decoded; sets = previous.sets
+        } else {
+            for entry in replica.records.values where !entry.deleted {
+                if previous?.replica.records[entry.key] == entry { decoded[entry.key] = previous?.decoded[entry.key] }
+                else { decoded[entry.key] = try? entry.watchSet() }
+            }
+            sets = decoded.values.sorted { $0.date == $1.date ? $0.id < $1.id : $0.date > $1.date }
+        }
+        today = sets.filter { calendar.isDate($0.date, inSameDayAs: now) }
+        for set in sets where lastSets[set.machineId] == nil { lastSets[set.machineId] = set }
+        // Local edits and tombstones override the same ID from the phone.
+        for set in replica.snapshot.lastSets where replica.records["sets:\(set.id)"] == nil {
+            if lastSets[set.machineId] == nil || set.date > lastSets[set.machineId]!.date { lastSets[set.machineId] = set }
+        }
+        for brand in replica.snapshot.brands { brandsByID[brand.id] = brand }
+        for machine in replica.snapshot.machines {
+            machinesByID[machine.id] = machine
+            machinesByBrand[machine.brandId, default: []].append(machine)
+        }
+        recentMachines = Array(replica.snapshot.machines.filter { lastSets[$0.id] != nil }.sorted {
+            let a = lastSets[$0.id]!.date, b = lastSets[$1.id]!.date
+            return a == b ? $0.id < $1.id : a > b
+        }.prefix(5))
+    }
+}
+
+actor WatchRepository {
+    private var url: URL?
+    private var replica: WatchReplica?
+    private var revision = 0
+    private var cached: WatchPresentation?
+    private var receivedJSON: String?
+
+    init(url: URL? = nil) { self.url = url }
+
+    func presentation(now: Date = Date(), calendar: Calendar = .current) throws -> WatchPresentation {
+        if replica == nil {
+            let file = try url ?? WatchFiles.url("watch-workouts.json")
+            let stored = try WatchFiles.read(WatchReplica.self, from: file, fallback: WatchReplica())
+            guard stored.snapshot.version == 1 else { throw WorkoutCloudError(code: "watch-version") }
+            url = file; replica = stored
+        }
+        if let cached, cached.revision == revision {
+            if cached.calendar == calendar, calendar.isDate(cached.day, inSameDayAs: now) { return cached }
+            revision += 1
+        }
+        let next = WatchPresentation(replica: replica!, revision: revision, previous: cached, now: now, calendar: calendar)
+        cached = next
+        return next
+    }
+
+    func update(_ change: @Sendable (inout WatchReplica) throws -> Void) throws -> WatchPresentation {
+        _ = try presentation()
+        var next = replica!
+        try change(&next)
+        if next != replica! {
+            try WatchFiles.write(next, to: url!)
+            replica = next; revision += 1
+        }
+        return try presentation()
+    }
+
+    func receive(_ text: String) throws -> WatchPresentation {
+        if receivedJSON == text { return try presentation() }
+        let packet = try JSONDecoder().decode(WatchPacket.self, from: Data(text.utf8))
+        let result = try update { try $0.receive(packet) }
+        receivedJSON = text
+        return result
     }
 }

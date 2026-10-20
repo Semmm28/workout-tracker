@@ -7,7 +7,16 @@ struct WorkoutWatchApp: App {
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
-            NavigationStack { WatchHome() }
+            NavigationStack {
+                if store.loading { ProgressView("Sets laden…") }
+                else if store.ready { WatchHome() }
+                else {
+                    VStack {
+                        Text("Je opgeslagen sets konden niet worden geladen.").font(.footnote)
+                        Button("Opnieuw proberen") { store.refresh() }
+                    }
+                }
+            }
                 .environmentObject(store)
                 .tint(.blue)
                 .alert("Workout Log", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
@@ -59,7 +68,7 @@ private struct BrandList: View {
             ForEach(store.replica.snapshot.brands) { brand in
                 NavigationLink(brand.name) {
                     List {
-                        let machines = store.replica.snapshot.machines.filter { $0.brandId == brand.id }
+                        let machines = store.data.machinesByBrand[brand.id] ?? []
                         if machines.isEmpty { Text("Nog geen apparaten. Voeg ze toe op je iPhone.").font(.footnote) }
                         ForEach(machines) { MachineRow(machine: $0, brandName: store.brandName($0)) }
                     }.navigationTitle(brand.name)
@@ -92,17 +101,19 @@ private struct SetEditor: View {
                     valueButton(weight, label: "kg", field: .weight)
                     valueButton(reps, label: "herhalingen", field: .reps)
                 }
-                if let last = store.replica.lastSet(machine.id) {
+                if let last = store.data.lastSets[machine.id] {
                     Text("Laatste: \(last.weight.formatted()) kg × \(last.reps)").font(.caption2).foregroundStyle(.secondary)
                 }
                 Button {
-                    if store.log(machine: machine, weight: weight, reps: Int(reps), existing: existing) {
-                        if existing == nil { showRest = true } else { dismiss() }
+                    Task {
+                        if await store.log(machine: machine, weight: weight, reps: Int(reps), existing: existing) {
+                            if existing == nil { showRest = true } else { dismiss() }
+                        }
                     }
                 } label: { Label(existing == nil ? "Log set" : "Bewaar wijziging", systemImage: "checkmark") }
                 .buttonStyle(.borderedProminent)
-                .disabled(!store.replica.snapshot.machines.contains { $0.id == machine.id })
-                if !store.replica.snapshot.machines.contains(where: { $0.id == machine.id }) {
+                .disabled(store.saving || store.data.machinesByID[machine.id] == nil)
+                if store.data.machinesByID[machine.id] == nil {
                     Text("Dit apparaat is op je iPhone verwijderd.").font(.caption2)
                 }
                 NavigationLink("Vandaag") { TodayList() }.font(.footnote)
@@ -112,9 +123,9 @@ private struct SetEditor: View {
         .onAppear {
             // Seed this editing session once; incoming sync must not replace a draft.
             guard !loaded else { return }
-            let last = existing ?? store.replica.lastSet(machine.id)
+            let last = existing ?? store.data.lastSets[machine.id]
             weight = last?.weight ?? 0; reps = Double(last?.reps ?? 10); loaded = true
-            if existing == nil, let id = store.replica.restSetId, store.replica.sets.contains(where: { $0.id == id && $0.machineId == machine.id }) { showRest = true }
+            if existing == nil, let id = store.replica.restSetId, store.data.sets.contains(where: { $0.id == id && $0.machineId == machine.id }) { showRest = true }
         }
         .sheet(item: $field) { selected in
             ValuePicker(value: selected == .weight ? $weight : $reps,
@@ -184,10 +195,10 @@ private struct RestView: View {
                     Text(seconds == 0 ? "Klaar voor je volgende set" : "Rust").font(.caption2).foregroundStyle(.secondary)
                 }
                 VStack {
-                    Button("+30 sec") { store.extendRest() }
-                    Button("Volgende set") { if store.endRest() { dismiss() } }.tint(.blue)
-                }.font(.footnote)
-                Button("Ongedaan maken") { if store.undoLastSet() { dismiss() } }.font(.footnote)
+                    Button("+30 sec") { Task { await store.extendRest() } }
+                    Button("Volgende set") { Task { if await store.endRest() { dismiss() } } }.tint(.blue)
+                }.font(.footnote).disabled(store.saving)
+                Button("Ongedaan maken") { Task { if await store.undoLastSet() { dismiss() } } }.font(.footnote).disabled(store.saving)
             }
         }
     }
@@ -200,7 +211,7 @@ private struct TodayList: View {
             Section("Op je Watch gelogd") {
                 if store.today.isEmpty { Text("Nog geen sets vandaag").font(.footnote) }
                 ForEach(store.today) { set in
-                    if let machine = store.replica.snapshot.machines.first(where: { $0.id == set.machineId }) {
+                    if let machine = store.data.machinesByID[set.machineId] {
                         NavigationLink { SetEditor(machine: machine, existing: set) } label: { setLabel(set) }
                     } else { setLabel(set) }
                 }
@@ -221,14 +232,14 @@ private struct WatchSettings: View {
     @EnvironmentObject var store: WatchStore
     var body: some View {
         Form {
-            Picker("Gewichtstap", selection: Binding(get: { store.replica.weightStep }, set: { store.preferences(weightStep: $0, restSeconds: store.replica.restSeconds) })) {
+            Picker("Gewichtstap", selection: Binding(get: { store.replica.weightStep }, set: { value in Task { await store.preferences(weightStep: value) } })) {
                 ForEach([0.5, 1.0, 2.5, 5.0], id: \.self) { Text("\($0.formatted()) kg").tag($0) }
             }
-            Picker("Rust", selection: Binding(get: { store.replica.restSeconds }, set: { store.preferences(weightStep: store.replica.weightStep, restSeconds: $0) })) {
+            Picker("Rust", selection: Binding(get: { store.replica.restSeconds }, set: { value in Task { await store.preferences(restSeconds: value) } })) {
                 ForEach([30.0, 60, 90, 120, 150, 180], id: \.self) { Text("\(Int($0)) sec").tag($0) }
             }
             Text(store.syncLabel).font(.caption2)
             Text("Merken en apparaten beheer je op je iPhone.").font(.caption2).foregroundStyle(.secondary)
-        }.navigationTitle("Instellingen")
+        }.navigationTitle("Instellingen").disabled(store.saving)
     }
 }

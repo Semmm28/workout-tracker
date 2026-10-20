@@ -35,19 +35,19 @@ final class PhoneUITests: XCTestCase {
         app.staticTexts["Chest Press"].tap()
         let row = app.buttons["set-fixture-set"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
-        XCTAssertTrue(row.label.contains("101,3 kg e1RM"))
+        XCTAssertTrue(row.label.contains("101,33 kg e1RM"), row.label)
         for (selection, summary) in [
             ("Hoogste volume per dag", "640 kg volume"),
-            ("Hoogste e1RM per dag", "101,3 kg e1RM"),
-            ("Eerste set · e1RM", "101,3 kg e1RM"),
-            ("Tweede set · e1RM", "101,3 kg e1RM"),
-            ("Derde set · e1RM", "101,3 kg e1RM"),
+            ("Hoogste e1RM per dag", "101,33 kg e1RM"),
+            ("Eerste set · e1RM", "101,33 kg e1RM"),
+            ("Tweede set · e1RM", "101,33 kg e1RM"),
+            ("Derde set · e1RM", "101,33 kg e1RM"),
             ("Hoogste volume per dag", "640 kg volume")
         ] {
             app.buttons["chart-mode"].tap()
             app.buttons[selection].tap()
             let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", summary), object: row)
-            XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+            XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed, row.label)
             XCTAssertTrue(row.label.contains("80 kg × 8"))
         }
         shot("Volume chart with matching set summary")

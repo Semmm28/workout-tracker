@@ -1,3 +1,5 @@
+import { compareSetsChronologically } from './selectors.js';
+
 const id = () => crypto.randomUUID();
 const stamp = () => new Date().toISOString();
 const text = v => typeof v === 'string' && v.length > 0;
@@ -34,7 +36,7 @@ export function planItem(machine, brands) {
 export function trainingTarget(item) { return item.repMin === item.repMax ? String(item.repMin) : `${item.repMin}–${item.repMax}`; }
 export function prepareItem(item, history) {
   const dayKey = s => { const d=new Date(s.loggedAt); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
-  const sorted = history.slice().sort((a,b)=>Date.parse(a.loggedAt)-Date.parse(b.loggedAt)||Date.parse(a.createdAt)-Date.parse(b.createdAt)||a.id.localeCompare(b.id));
+  const sorted = history.slice().sort(compareSetsChronologically);
   const previous = sorted.length ? sorted.filter(s=>dayKey(s)===dayKey(sorted.at(-1))) : [];
   return { ...item, sets:Array.from({length:item.setCount},(_,i)=>{
     const old=previous[Math.min(i, previous.length-1)];

@@ -1,6 +1,7 @@
 import { getAll } from './database.js';
 import { state } from './state.js';
 import { readChartSeriesMode } from './utils.js';
+import { compareSetsChronologically } from './selectors.js';
 
 export async function loadState() {
   const [brands, machines, sets, bodyweights, plans, sessions] = await Promise.all([
@@ -25,7 +26,7 @@ export async function loadState() {
     if (!state.setsByMachine.has(entry.machineId)) state.setsByMachine.set(entry.machineId, []);
     state.setsByMachine.get(entry.machineId).push(entry);
     const last = state.lastSets.get(entry.machineId);
-    if (!last || Date.parse(entry.loggedAt) > Date.parse(last.loggedAt) || (entry.loggedAt === last.loggedAt && (entry.createdAt || '') > (last.createdAt || ''))) state.lastSets.set(entry.machineId, entry);
+    if (!last || compareSetsChronologically(entry, last) > 0) state.lastSets.set(entry.machineId, entry);
   }
   state.preferences.chartSeriesMode = readChartSeriesMode();
 }

@@ -58,6 +58,15 @@ test('existing v2 records seed once without changing IDs, dates or values', asyn
   assert.equal((await openDb()).version, 4);
 });
 
+test('machine previous-set labels use the same tie-breaker as the history', async () => {
+  await saveRecord('brands', { id: 'b', name: 'Brand' });
+  await saveRecord('machines', { id: 'm', brandId: 'b', name: 'Press' });
+  const set = { machineId: 'm', loggedAt: '2026-10-20T10:00:00Z', createdAt: '2026-10-20T10:00:00Z', weight: 50, reps: 8 };
+  await bulkPut('sets', [{ ...set, id: 'a' }, { ...set, id: 'z', weight: 60 }]);
+  await loadState();
+  assert.equal(state.lastSets.get('m').id, 'z');
+});
+
 test('a local edit and its durable journal commit together and notify only afterward', async () => {
   let count = 0;
   const stop = onDatabaseChange(() => { count++; });

@@ -28,7 +28,7 @@ test('buildExportPayload clones all locally stored collections', () => {
   state.bodyweights = [];
 
   const payload = buildExportPayload();
-  assert.equal(payload.version, 1);
+  assert.equal(payload.version, 2);
   assert.deepEqual(payload.brands, state.brands);
   assert.notEqual(payload.brands, state.brands);
   assert.ok(Number.isFinite(new Date(payload.exportedAt).getTime()));

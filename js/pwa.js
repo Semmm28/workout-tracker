@@ -24,7 +24,7 @@ export function setupServiceWorkerAutoRefresh(showToast) {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (isRefreshingApp) return;
-    if (document.querySelector('[role="dialog"], #bodyweight-form, input[type="search"]:focus')) {
+    if (document.querySelector('[role="dialog"], #bodyweight-form, #training-plan-form, .training-set-form, input[type="search"]:focus')) {
       showToast?.('Update klaar. Rond je invoer af en ververs via Instellingen.');
       return;
     }

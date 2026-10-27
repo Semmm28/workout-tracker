@@ -15,7 +15,7 @@ export function renderSettingsScreen() {
             <div class="settings-stack">
               <div class="settings-copy">
                 <h3>Data exporteren</h3>
-                <p class="meta-text">Download al je brands, machines, sets en lichaamsgewichtmetingen als JSON-backup.</p>
+                <p class="meta-text">Download al je merken, apparaten, sets, schema’s, trainingen en lichaamsgewichtmetingen als JSON-backup.</p>
               </div>
               <button class="primary-btn" data-action="export-data">Exporteer data</button>
             </div>

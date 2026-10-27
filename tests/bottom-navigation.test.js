@@ -11,7 +11,7 @@ import { state } from '../js/state.js';
 test('bottom navigation uses the requested order and no hamburger button', () => {
   state.route = { screen: 'brands', brandId: null, machineId: null };
   const markup = renderBottomNavigation();
-  const labels = ['Workouts', 'Recent', 'Log set', 'Lichaamsgewicht', 'Instellingen'];
+  const labels = ['Workouts', 'Recent', 'Log set', 'Gewicht', 'Instellingen'];
 
   labels.reduce((previousIndex, label) => {
     const index = markup.indexOf(label);

@@ -1,3 +1,4 @@
+import { createTrainingController } from './training-controller.js';
 import { CHART_SERIES_OPTIONS } from './constants.js';
 import { buildExportPayload, importDataFile } from './data-transfer.js';
 import { loadState } from './data.js';
@@ -30,6 +31,7 @@ import {
 
 export function createController({ render, navigate, goBack, refreshApp }) {
   let toastTimer = null;
+  const training = createTrainingController({render,navigate,showToast});
 
   function openBrandModal(mode, data = null) {
     state.modal = { type: 'brand', mode, data };
@@ -139,8 +141,8 @@ export function createController({ render, navigate, goBack, refreshApp }) {
           render();
           if (!total) showToast('No valid records found in import file');
           else showToast(`Imported ${total} record${total === 1 ? '' : 's'}`);
-        } catch {
-          showToast('Import niet voltooid. Controleer of dit een geldig JSON-bestand van Workout Log is.');
+        } catch (error) {
+          showToast(error.message || 'Import niet voltooid. Controleer of dit een geldig JSON-bestand van Workout Log is.');
         } finally {
           event.target.value = '';
         }
@@ -272,6 +274,7 @@ export function createController({ render, navigate, goBack, refreshApp }) {
 
       if (action === 'noop') return;
       if (action === 'backdrop-close' && event.target === target) return closeModal();
+      if (action.startsWith('training-')) return training.handle(action, target);
       if (action === 'close-modal') return closeModal();
       if (action === 'close-sheet') return closeConfirmSheet();
       if (action === 'undo-toast' && state.toast?.undo) return state.toast.undo();
@@ -402,6 +405,7 @@ export function createController({ render, navigate, goBack, refreshApp }) {
   function wireRenderedUi() {
     wireInputs();
     wireForms();
+    training.wire();
     wireSwipeRows();
   }
 

@@ -1,3 +1,4 @@
+import { renderTrainingHistory } from './training.js';
 import { icon } from '../constants.js';
 import { groupedRecentActivity } from '../selectors.js';
 import { state } from '../state.js';
@@ -77,6 +78,7 @@ export function renderRecentActivityScreen() {
       </div>
       <div class="screen-scroll">
         <div class="detail-stack fade-in">
+          ${renderTrainingHistory()}
           ${groups.length
             ? groups.map((group) => renderRecentActivityGroup(group)).join('')
             : `

@@ -67,13 +67,14 @@ export function renderBrandsScreen() {
     <section class="screen-shell">
       <div class="screen-top fade-in">
         ${renderHeader({
-          title: 'Brands',
+          title: 'Workouts',
           subtitle: `${state.brands.length} total`,
           extraButtons: `
             <button class="small-btn ${state.reorder.brands ? 'active' : ''}" data-action="toggle-brand-reorder">${state.reorder.brands ? 'Done' : 'Sort'}</button>
             <button class="round-btn primary" data-action="open-brand-create" aria-label="Add brand">${icon.plus}</button>
           `,
         })}
+        ${state.route.screen === 'brands' ? '<div class="training-segment"><button class="active" data-action="nav-workouts" aria-pressed="true">Apparaten</button><button data-action="training-plans" aria-pressed="false">Schema’s</button></div>' : ''}
         <section class="toolbar">
           <div class="search-wrap">
             <span class="search-icon">${icon.search}</span>
@@ -92,6 +93,7 @@ export function renderBrandsScreen() {
 
 function renderMachineRow(machine, index, total) {
   const count = setCountByMachine(machine.id);
+  const previous = state.lastSets.get(machine.id);
   const tail = state.reorder.machines
     ? `<div class="reorder-controls">
         <button data-action="move-machine-up" data-id="${escapeAttr(machine.id)}" ${index === 0 ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
@@ -105,6 +107,7 @@ function renderMachineRow(machine, index, total) {
       <div class="item-body">
         <div class="item-title">${safeText(machine.name)}</div>
         <div class="item-subtitle">${count} logged set${count === 1 ? '' : 's'}</div>
+        ${previous ? `<div class="item-subtitle">Vorige set: ${safeText(formatWeight(previous.weight))} kg × ${safeText(previous.reps)}</div>` : '<div class="item-subtitle">Nog geen set opgeslagen</div>'}
         ${machine.note ? `<div class="item-note-preview">${safeText(previewText(machine.note, 64))}</div>` : ''}
       </div>
       ${tail}
@@ -154,6 +157,7 @@ export function renderMachinesScreen() {
             <button class="round-btn primary" data-action="open-machine-create" aria-label="Add machine">${icon.plus}</button>
           `,
         })}
+        ${state.route.screen === 'brands' ? '<div class="training-segment"><button class="active" data-action="nav-workouts" aria-pressed="true">Apparaten</button><button data-action="training-plans" aria-pressed="false">Schema’s</button></div>' : ''}
         <section class="toolbar">
           <div class="search-wrap">
             <span class="search-icon">${icon.search}</span>

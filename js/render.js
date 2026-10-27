@@ -1,3 +1,4 @@
+import { renderTrainingScreen } from './screens/training.js';
 import { renderBodyweightScreen } from './screens/bodyweight.js';
 import { renderRecentActivityScreen } from './screens/recent-activity.js';
 import { renderSettingsScreen } from './screens/settings.js';
@@ -25,7 +26,7 @@ export function renderLoadingMarkup() {
 }
 
 export function renderAppMarkup() {
-  let screen = '';
+  let screen = ['plans','plan','planEdit','trainingPicker','training'].includes(state.route.screen) ? renderTrainingScreen() : '';
   if (state.route.screen === 'brands') screen = renderBrandsScreen();
   if (state.route.screen === 'machines') screen = renderMachinesScreen();
   if (state.route.screen === 'machineDetail') screen = renderMachineDetailScreen();

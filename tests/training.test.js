@@ -45,3 +45,11 @@ test('v2 backups preserve plans, in-progress workouts, original IDs and unknown 
   assert.throws(()=>sanitizeImportData({...backup,version:3}));
   assert.deepEqual(sanitizeImportData({version:1,brands}).plans,[]);
 });
+
+// Equal logged times and legacy missing creation times must match the chart/history order.
+test('previous workout values use the existing history tie-breaker',()=>{
+  const same=history[0];
+  const entries=[{...same,id:'a',weight:50},{...same,id:'z',weight:70},{...same,id:'m',weight:80,createdAt:undefined}];
+  const session=startTraining(fixture(),machines,brands,entries);
+  assert.deepEqual(session.items[0].sets.map(s=>s.weight),[50,70,80]);
+});

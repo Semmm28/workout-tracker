@@ -1,5 +1,7 @@
 export const state = {
   ready: false,
+  plans: [], sessions: [], setsByMachine: new Map(), lastSets: new Map(),
+  trainingUI: { draft: null, editing: false, current: 0, picker: null, brand: null, previous: null, error: '' },
   brands: [],
   machines: [],
   sets: [],

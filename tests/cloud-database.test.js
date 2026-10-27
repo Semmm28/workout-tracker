@@ -7,6 +7,8 @@ import { deleteBrandCascade, restoreSnapshot } from '../js/repository.js';
 import { buildExportPayload, importDataFile } from '../js/data-transfer.js';
 import { loadState } from '../js/data.js';
 import { state } from '../js/state.js';
+import { readFile } from 'node:fs/promises';
+import { trainingSetChange } from '../js/training-model.js';
 
 globalThis.localStorage = { getItem: () => null };
 const stores = [...ENTITY_STORES, 'syncRecords', 'syncMeta'];
@@ -18,6 +20,32 @@ beforeEach(async () => {
   await loadState();
 });
 
+test('training sets, rest timer and journal commit together; stale writes cannot reopen a finished session', async () => {
+  const fixture = JSON.parse(await readFile(new URL('./fixtures/training-backup-v2.json', import.meta.url), 'utf8'));
+  await importDataFile({ text: async () => JSON.stringify(fixture) });
+  const session = (await getAll('sessions'))[0], item = session.items[0], set = item.sets[0];
+  const changes = trainingSetChange(session, item.id, set.id, 62.5, 8, await getAll('sets'));
+  await writeChanges(changes);
+  assert.equal((await getAll('sets')).find(s => s.id === set.id).sessionId, session.id);
+  assert.ok((await getAll('sessions'))[0].restUntil);
+  const journal = await getAll('syncRecords');
+  assert.ok(journal.some(e => e.key === `sets:${set.id}`));
+  assert.ok(journal.some(e => e.key === `sessions:${session.id}`));
+  await saveRecord('sessions', { ...session, status: 'completed', finishedAt: new Date().toISOString() });
+  const before = await getAll('sets');
+  await assert.rejects(writeChanges([
+    { kind: 'sets', id: set.id, deleted: true },
+    { kind: 'sessions', id: session.id, record: session },
+  ]));
+  assert.deepEqual(await getAll('sets'), before);
+  assert.equal((await getAll('sessions'))[0].status, 'completed');
+  await loadState();
+  const backup = buildExportPayload();
+  assert.equal(backup.version, 2);
+  assert.equal(backup.plans.length, 1);
+  assert.equal(backup.sessions.length, 1);
+});
+
 test('existing v2 records seed once without changing IDs, dates or values', async () => {
   const record = { id: 'legacy', name: 'Gym', updatedAt: '2025-01-01T00:00:00.000Z' };
   await tx('brands', 'readwrite', (store) => store.put(record));
@@ -27,7 +55,7 @@ test('existing v2 records seed once without changing IDs, dates or values', asyn
   assert.deepEqual(await getAll('syncRecords'), first);
   assert.deepEqual(await getAll('brands'), [record]);
   assert.equal(JSON.parse(first[0].value).id, 'legacy');
-  assert.equal((await openDb()).version, 3);
+  assert.equal((await openDb()).version, 4);
 });
 
 test('a local edit and its durable journal commit together and notify only afterward', async () => {

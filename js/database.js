@@ -1,7 +1,7 @@
 import { compareEnvelopes, ENTITY_STORES, entityKey, makeEnvelope, revisionTime, validateEnvelope } from './sync-model.js';
 
 const DB_NAME = 'workout-tracker-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const SYNC_STORES = ['syncRecords', 'syncMeta'];
 const listeners = new Set();
 
@@ -18,6 +18,7 @@ export function openDb() {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
+      for (const name of ['plans', 'sessions']) { if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: 'id' }); }
       if (!db.objectStoreNames.contains('syncRecords')) db.createObjectStore('syncRecords', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('syncMeta')) db.createObjectStore('syncMeta', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('brands')) {
@@ -39,7 +40,8 @@ export function openDb() {
         bodyweights.createIndex('loggedAt', 'loggedAt');
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onblocked = () => reject(new Error('Sluit andere tabbladen van Workout Log en open de app opnieuw om bij te werken.'));
+    request.onsuccess = () => { request.result.onversionchange = () => { request.result.close(); dbPromise = null; }; resolve(request.result); };
     request.onerror = () => reject(request.error);
   });
   return dbPromise;
@@ -52,8 +54,8 @@ export async function tx(storeName, mode, executor) {
     const store = transaction.objectStore(storeName);
     const result = executor(store, transaction);
     transaction.oncomplete = () => resolve(result);
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
+    transaction.onerror = () => reject(transaction.error || new Error("Opslaan is afgebroken. Open de training opnieuw en probeer nogmaals."));
+    transaction.onabort = () => reject(transaction.error || new Error("Opslaan is afgebroken. Open de training opnieuw en probeer nogmaals."));
   });
 }
 
@@ -64,8 +66,8 @@ export async function txMulti(storeNames, mode, executor) {
     const stores = Object.fromEntries(storeNames.map((name) => [name, transaction.objectStore(name)]));
     const result = executor(stores, transaction);
     transaction.oncomplete = () => resolve(result);
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
+    transaction.onerror = () => reject(transaction.error || new Error("Opslaan is afgebroken. Open de training opnieuw en probeer nogmaals."));
+    transaction.onabort = () => reject(transaction.error || new Error("Opslaan is afgebroken. Open de training opnieuw en probeer nogmaals."));
   });
 }
 
@@ -86,7 +88,8 @@ export async function writeChanges(changes) {
   for (const change of changes) {
     if (!ENTITY_STORES.includes(change.kind) || typeof change.id !== 'string' || !change.id) throw new Error('Invalid record ID');
   }
-  await txMulti([...ENTITY_STORES, ...SYNC_STORES], 'readwrite', (stores) => {
+  await txMulti([...ENTITY_STORES, ...SYNC_STORES], 'readwrite', (stores, transaction) => {
+    for (const c of changes.filter(c=>c.kind==='sessions' && c.record?.status==='active')) { const current=stores.sessions.get(c.id); current.onsuccess=()=>{if(current.result?.status==='completed')transaction.abort();}; }
     const clock = stores.syncMeta.get('clock');
     clock.onsuccess = () => {
       let time = Math.max(Date.now(), Number(clock.result?.value || 0));

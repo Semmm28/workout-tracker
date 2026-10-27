@@ -56,7 +56,7 @@ struct PhoneRootView: View {
     }
     private var tabs: some View {
         TabView {
-            NavigationStack { BrandScreen() }.tabItem { Label("Workouts", systemImage: "dumbbell") }
+            NavigationStack { WorkoutsScreen() }.tabItem { Label("Workouts", systemImage: "dumbbell") }
             NavigationStack { RecentScreen() }.tabItem { Label("Recent", systemImage: "clock") }
             NavigationStack { QuickLogScreen() }.tabItem { Label("Log set", systemImage: "plus.circle.fill") }
             NavigationStack { BodyweightScreen() }.tabItem { Label("Gewicht", systemImage: "scalemass") }
@@ -153,6 +153,7 @@ struct MachineScreen: View {
                         Text(machine.name).font(.headline)
                         let count = store.data.setsByMachine[machine.id]?.count ?? 0
                         Text("\(count) \(count == 1 ? "set" : "sets")").font(.subheadline).foregroundStyle(.secondary)
+                        PreviousSetLabel(set: store.data.setsByMachine[machine.id]?.last)
                         if !machine.text("note").isEmpty { Text(machine.text("note")).font(.footnote).foregroundStyle(.secondary) }
                     }.padding(.vertical, 4)
                 }
@@ -295,6 +296,7 @@ struct QuickLogScreen: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(machine.name).font(.headline).foregroundStyle(.primary)
                         Text(store.brandName(machine)).font(.subheadline).foregroundStyle(.secondary)
+                        PreviousSetLabel(set: store.data.setsByMachine[machine.id]?.last)
                     }.padding(.vertical, 5)
                 }
             }
@@ -309,6 +311,19 @@ struct RecentScreen: View {
     @State private var expanded = Set<Date>()
     var body: some View {
         List {
+            if !store.data.sessions.isEmpty {
+                Section("Trainingen") {
+                    ForEach(store.data.sessions) { session in
+                        NavigationLink { TrainingSessionScreen(sessionID: session.id) } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(session.name).font(.headline)
+                                Text("\(store.data.setsBySession[session.id]?.count ?? 0) sets · \(session.status == "active" ? "Hervatten" : "Afgerond")").font(.subheadline).foregroundStyle(.secondary)
+                                if let date = session.loggedAt.flatMap(WatchSet.date) { Text(date, style: .date).font(.caption).foregroundStyle(.secondary) }
+                            }
+                        }
+                    }
+                }
+            }
             if store.sets.isEmpty { WorkoutEmptyState(title: "Nog geen workouts", message: "Je gelogde sets verschijnen hier per dag.") }
             ForEach(store.data.recentDays) { day in
                 DisclosureGroup(isExpanded: Binding(get: { expanded.contains(day.id) }, set: { if $0 { expanded.insert(day.id) } else { expanded.remove(day.id) } })) {

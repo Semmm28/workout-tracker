@@ -35,6 +35,8 @@
 		EEB96390DD08470C90B91B32 /* PhoneEditors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44003A94B13D4053B86EA1E7 /* PhoneEditors.swift */; };
 		A62EA739F87746BBA374B37D /* PhoneUITests.mdimporter in Copy Files */ = {isa = PBXBuildFile; fileRef = 426826F3E46A4BEEB803866B /* PhoneUITests.mdimporter */; };
 		5D2754EC05AE42B0BB51778E /* PhoneUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF920A2A83149F799E3833E /* PhoneUITests.swift */; };
+		E20000000000000000000001 /* TrainingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001; };
+		E20000000000000000000002 /* TrainingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000002; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +71,8 @@
 		44003A94B13D4053B86EA1E7 /* PhoneEditors.swift */ = {isa = PBXFileReference; name = "PhoneEditors.swift"; path = "PhoneEditors.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
 		426826F3E46A4BEEB803866B /* PhoneUITests.mdimporter */ = {isa = PBXFileReference; name = "PhoneUITests.mdimporter"; path = PhoneUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; fileEncoding = undefined; lastKnownFileType = undefined; explicitFileType = wrapper.cfbundle; includeInIndex = 0; };
 		BEF920A2A83149F799E3833E /* PhoneUITests.swift */ = {isa = PBXFileReference; name = "PhoneUITests.swift"; path = "PhoneUITests/PhoneUITests.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
+		E10000000000000000000001 /* TrainingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingModel.swift; sourceTree = "<group>"; };
+		E10000000000000000000002 /* TrainingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -205,6 +209,8 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				E10000000000000000000001 /* TrainingModel.swift */,
+				E10000000000000000000002 /* TrainingViews.swift */,
 				07407EA6568C4D7493B1EBE1 /* PhoneModel.swift */,
 				8A13C50452D04521A8B264B6 /* PhoneStore.swift */,
 				19277F8347B64C658E8982A1 /* PhoneMigration.swift */,
@@ -389,6 +395,8 @@
 				B10000000000000000000006 /* WorkoutCloudPlugin.swift in Sources */,
 				B10000000000000000000004 /* WorkoutCloudStore.swift in Sources */,
 				B10000000000000000000002 /* WorkoutEnvelope.swift in Sources */,
+				E20000000000000000000001 /* TrainingModel.swift in Sources */,
+				E20000000000000000000002 /* TrainingViews.swift in Sources */,
 				D06C838B292847DDA896D1BB /* PhoneModel.swift in Sources */,
 				21D441A0A2C04E94AD7B9209 /* PhoneStore.swift in Sources */,
 				F006CD57533844FB91C61C1F /* PhoneMigration.swift in Sources */,
@@ -440,7 +448,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = nl.sem.workouttracker.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -466,7 +474,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = nl.sem.workouttracker.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -602,7 +610,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = nl.sem.workouttracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -626,7 +634,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = nl.sem.workouttracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";

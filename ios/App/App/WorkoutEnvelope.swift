@@ -20,7 +20,7 @@ struct WorkoutEnvelope: Codable, Equatable, Sendable {
     }
 
     func validate() throws {
-        guard version == 1, ["brands", "machines", "sets", "bodyweights"].contains(kind),
+        guard version == 1, ["brands", "machines", "sets", "bodyweights", "plans", "sessions"].contains(kind),
               !id.isEmpty, key == "\(kind):\(id)",
               revision.range(of: "^[0-9]{16}-[a-zA-Z0-9-]+$", options: .regularExpression) != nil,
               let time = Int64(revision.prefix(16)), time <= 9_007_199_254_740_991 else {

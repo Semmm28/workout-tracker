@@ -6,6 +6,19 @@ The existing PWA is maintained on `main`.
 
 A browser-based, offline-first workout tracker optimized for iPhone Safari and Home Screen installation.
 
+## Training plans and backups
+
+Workouts → Schema’s creates ordered plans using existing machines and brands.
+Each item has set, repetition and rest targets. Starting a workout snapshots the
+plan and fills previous values from that exact machine. Saved sets immediately
+appear in normal history; active workouts survive closing the app. Switching
+machines preserves completed sets and loads the replacement machine’s history.
+
+Backup format 2 includes `plans` and `sessions` alongside all existing records.
+Both updated apps import format 1 and 2; format 2 requires iOS 0.3.0 or the
+updated PWA. Existing databases upgrade in place. Plans and sessions use the
+existing iOS iCloud journal; the Watch companion keeps its current logging flow.
+
 ## What is included
 
 - Brands overview with search, manual sorting, add/edit/delete, and swipe-left actions

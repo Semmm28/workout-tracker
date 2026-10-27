@@ -90,6 +90,15 @@ final class PhoneStore: ObservableObject {
         await reload()
         Task { await refresh() }
     }
+    func saveTraining(_ document: TrainingDocument, kind: String, existing: Bool) async throws {
+        let original = kind == "plans" ? data.planRecords[document.id] : data.sessionRecords[document.id]
+        try await save(kind: kind, row: document.record(preserving: original), existing: existing)
+    }
+    func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool) async throws {
+        guard let repository else { throw PhoneDataError.notReady }
+        try await repository.trainingSet(sessionID: sessionID, itemID: itemID, setID: setID, weight: weight, reps: reps, undo: undo)
+        await reload(); Task { await refresh() }
+    }
     func remove(kind: String, id: String) async {
         guard let repository else { return }
         do {

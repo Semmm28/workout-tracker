@@ -61,6 +61,7 @@ struct WorkoutRecord: Codable, Identifiable, Equatable, Sendable {
         switch kind {
         case "brands": guard !name.isEmpty else { throw PhoneDataError.invalidBackup }
         case "machines": guard !name.isEmpty, !text("brandId").isEmpty else { throw PhoneDataError.invalidBackup }
+        case "plans", "sessions": try TrainingDocument(record: self).validate(kind: kind)
         case "sets", "bodyweights":
             guard let weight = fields["weight"]?.number, weight >= 0, WatchSet.date(text("loggedAt")) != nil else { throw PhoneDataError.invalidBackup }
             if kind == "sets" {
@@ -72,9 +73,11 @@ struct WorkoutRecord: Codable, Identifiable, Equatable, Sendable {
 }
 
 enum PhoneDataError: LocalizedError {
-    case invalidBackup, unsupportedVersion, storage, notReady, deleted, account
+    case invalidBackup, unsupportedVersion, storage, notReady, deleted, account, missingTrainingMachine, trainingFinished
     var errorDescription: String? {
         switch self {
+        case .missingTrainingMachine: return "Een apparaat uit dit schema is verwijderd. Wijzig het schema en kies een bestaand apparaat."
+        case .trainingFinished: return "Deze training of dit apparaat is al afgerond. Je opgeslagen sets blijven bewaard."
         case .invalidBackup: return "Dit bestand bevat ongeldige gegevens. Er is niets geïmporteerd. Kies een Workout Log-back-up."
         case .unsupportedVersion: return "Deze back-up hoort bij een nieuwere versie. Werk de app bij om hem te importeren."
         case .storage: return "Opslaan of lezen is niet gelukt. Je bestaande gegevens blijven bewaard. Probeer opnieuw; verwijder de app niet."
@@ -86,29 +89,33 @@ enum PhoneDataError: LocalizedError {
 }
 
 struct PhoneBackup: Codable, Sendable {
-    var version = 1
+    var version = 2
     var exportedAt = WatchSet.timestamp()
     var brands: [WorkoutRecord] = []
     var machines: [WorkoutRecord] = []
     var sets: [WorkoutRecord] = []
     var bodyweights: [WorkoutRecord] = []
-    static let kinds = ["brands", "machines", "sets", "bodyweights"]
-    var collections: [(String, [WorkoutRecord])] { [("brands", brands), ("machines", machines), ("sets", sets), ("bodyweights", bodyweights)] }
+    var plans: [WorkoutRecord] = []
+    var sessions: [WorkoutRecord] = []
+    static let kinds = ["brands", "machines", "sets", "bodyweights", "plans", "sessions"]
+    var collections: [(String, [WorkoutRecord])] { [("brands", brands), ("machines", machines), ("sets", sets), ("bodyweights", bodyweights), ("plans", plans), ("sessions", sessions)] }
     var count: Int { collections.reduce(0) { $0 + $1.1.count } }
-    enum CodingKeys: String, CodingKey { case version, exportedAt, brands, machines, sets, bodyweights }
+    enum CodingKeys: String, CodingKey { case version, exportedAt, brands, machines, sets, bodyweights, plans, sessions }
     init() {}
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
-        guard version == 1 else { throw PhoneDataError.unsupportedVersion }
+        guard (1...2).contains(version) else { throw PhoneDataError.unsupportedVersion }
         exportedAt = try c.decodeIfPresent(String.self, forKey: .exportedAt) ?? ""
         brands = try c.decodeIfPresent([WorkoutRecord].self, forKey: .brands) ?? []
         machines = try c.decodeIfPresent([WorkoutRecord].self, forKey: .machines) ?? []
         sets = try c.decodeIfPresent([WorkoutRecord].self, forKey: .sets) ?? []
         bodyweights = try c.decodeIfPresent([WorkoutRecord].self, forKey: .bodyweights) ?? []
+        plans = try c.decodeIfPresent([WorkoutRecord].self, forKey: .plans) ?? []
+        sessions = try c.decodeIfPresent([WorkoutRecord].self, forKey: .sessions) ?? []
     }
     func validate(strict: Bool = true) throws {
-        guard version == 1 else { throw PhoneDataError.unsupportedVersion }
+        guard (1...2).contains(version) else { throw PhoneDataError.unsupportedVersion }
         for (kind, rows) in collections {
             guard Set(rows.map(\.id)).count == rows.count else { throw PhoneDataError.invalidBackup }
             for row in rows { try row.validate(kind: kind, strict: strict) }
@@ -147,13 +154,17 @@ struct PhoneSnapshot: Codable, Equatable, Sendable {
     func backup() -> PhoneBackup {
         var b = PhoneBackup()
         b.brands = rows("brands"); b.machines = rows("machines"); b.sets = rows("sets"); b.bodyweights = rows("bodyweights")
+        b.plans = rows("plans"); b.sessions = rows("sessions")
         return b
     }
     mutating func merge(_ entries: [WorkoutEnvelope]) throws {
         // Identical envelopes have already passed validation; sync often replays the whole history.
         for e in entries where e != records[e.key] {
             try e.validate()
-            if !e.deleted { _ = try JSONDecoder().decode(WorkoutRecord.self, from: Data((e.value ?? "").utf8)) }
+            if !e.deleted {
+                let record = try JSONDecoder().decode(WorkoutRecord.self, from: Data((e.value ?? "").utf8))
+                if e.kind == "plans" || e.kind == "sessions" { try record.validate(kind: e.kind) }
+            }
         }
         for e in entries {
             clock = max(clock, Int64(e.revision.prefix(16)) ?? 0)
@@ -285,6 +296,8 @@ actor PhoneRepository {
         guard !existing || snapshot.records["\(kind):\(record.id)"]?.deleted == false else { throw PhoneDataError.deleted }
         if kind == "machines", snapshot.records["brands:\(record.text("brandId"))"]?.deleted != false { throw PhoneDataError.deleted }
         if kind == "sets", snapshot.records["machines:\(record.text("machineId"))"]?.deleted != false { throw PhoneDataError.deleted }
+        if kind == "sessions", existing,
+           presentation().sessions.first(where: { $0.id == record.id })?.status == "completed", record.text("status") == "active" { throw PhoneDataError.trainingFinished }
         try record.validate(kind: kind)
         var next = snapshot; try next.put(kind: kind, record: record)
         return try commit(next)
@@ -297,6 +310,29 @@ actor PhoneRepository {
         var next = snapshot
         for (kind, rows) in backup.collections { for row in rows { try next.put(kind: kind, record: row, updateTimestamp: false) } }
         return try commit(next)
+    }
+    func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool) throws {
+        let data = presentation()
+        guard let original = data.sessionRecords[sessionID], var session = data.sessions.first(where: { $0.id == sessionID }), session.status == "active",
+              let item = session.items.first(where: { $0.id == itemID }), let planned = item.sets?.first(where: { $0.id == setID }) else { throw PhoneDataError.trainingFinished }
+        guard data.machinesByID[item.machineId] != nil else { throw PhoneDataError.missingTrainingMachine }
+        guard weight.isFinite, (0...2000).contains(weight), (1...1000).contains(reps) else { throw PhoneDataError.invalidBackup }
+        var next = snapshot
+        if undo {
+            guard let saved = data.setsByID[setID], saved.text("sessionId") == sessionID else { return }
+            try next.put(kind: "sets", record: saved, deleted: true); session.restUntil = nil
+        } else {
+            // Repeated taps/retries use the planned ID and cannot create another set.
+            guard data.setsByID[setID] == nil else { return }
+            let stamp = WatchSet.timestamp()
+            let saved = WorkoutRecord(["id": .string(planned.id), "machineId": .string(item.machineId), "sessionId": .string(sessionID),
+                                       "trainingItemId": .string(itemID), "weight": .number(weight), "reps": .number(Double(reps)),
+                                       "createdAt": .string(stamp), "loggedAt": .string(stamp)])
+            try next.put(kind: "sets", record: saved)
+            session.restUntil = ISO8601DateFormatter().string(from: Date().addingTimeInterval(Double(item.restSeconds)))
+        }
+        try next.put(kind: "sessions", record: session.record(preserving: original))
+        _ = try commit(next)
     }
     func merge(_ entries: [WorkoutEnvelope], owner: String? = nil) throws -> PhoneSnapshot {
         guard snapshot.migrated else { throw PhoneDataError.notReady }
@@ -361,6 +397,12 @@ struct PhonePresentation: Sendable {
     var machinesByID: [String: WorkoutRecord] = [:]
     var machinesByBrand: [String: [WorkoutRecord]] = [:]
     var setsByMachine: [String: [WorkoutRecord]] = [:]
+    var setsByID: [String: WorkoutRecord] = [:]
+    var setsBySession: [String: [WorkoutRecord]] = [:]
+    var plans: [TrainingDocument] = []
+    var sessions: [TrainingDocument] = []
+    var planRecords: [String: WorkoutRecord] = [:]
+    var sessionRecords: [String: WorkoutRecord] = [:]
     var histories: [String: WorkoutHistory] = [:]
     var recentDays: [WorkoutDay] = []
     var bodyweightPoints: [WorkoutPoint] = []
@@ -384,6 +426,13 @@ struct PhonePresentation: Sendable {
         machinesByBrand = Dictionary(grouping: machines) { $0.text("brandId") }
         sets = rows("sets").filter { machinesByID[$0.text("machineId")] != nil }
         setsByMachine = Dictionary(grouping: sets) { $0.text("machineId") }
+        for id in Array(setsByMachine.keys) { setsByMachine[id]?.sort(by: WorkoutMetrics.chronological) }
+        setsByID = Dictionary(uniqueKeysWithValues: sets.map { ($0.id, $0) })
+        setsBySession = Dictionary(grouping: sets.filter { !$0.text("sessionId").isEmpty }) { $0.text("sessionId") }
+        planRecords = Dictionary(uniqueKeysWithValues: rows("plans").map { ($0.id, $0) })
+        sessionRecords = Dictionary(uniqueKeysWithValues: rows("sessions").map { ($0.id, $0) })
+        plans = rows("plans").compactMap { try? TrainingDocument(record: $0) }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        sessions = rows("sessions").reversed().compactMap { try? TrainingDocument(record: $0) }
         for (id, entries) in setsByMachine {
             let days = WorkoutMetrics.days(entries)
             histories[id] = WorkoutHistory(days: days, records: WorkoutMetrics.records(entries),

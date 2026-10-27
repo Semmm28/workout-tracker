@@ -1,4 +1,9 @@
 export function routeToHash(route) {
+  if (route.screen === 'plans') return '#/plans';
+  if (route.screen === 'plan') return `#/plans/${encodeURIComponent(route.id)}`;
+  if (route.screen === 'training') return `#/training/${encodeURIComponent(route.id)}`;
+  if (route.screen === 'planEdit') return '#/plan-edit';
+  if (route.screen === 'trainingPicker') return '#/training-picker';
   if (route.screen === 'brands') return '#/brands';
   if (route.screen === 'machines') return `#/brands/${route.brandId}`;
   if (route.screen === 'machineDetail') return `#/brands/${route.brandId}/machines/${route.machineId}`;
@@ -15,6 +20,10 @@ export function deriveRouteFromHash(hash = location.hash) {
   if (value === 'bodyweight') return { screen: 'bodyweight', brandId: null, machineId: null };
   if (value === 'settings') return { screen: 'settings', brandId: null, machineId: null };
   const parts = value.split('/');
+  if (value === 'plans') return {screen:'plans'};
+  if (value === 'plan-edit' || value === 'training-picker') return {screen:'plans'};
+  if (parts[0] === 'plans' && parts[1]) return {screen:'plan',id:decodeURIComponent(parts[1])};
+  if (parts[0] === 'training' && parts[1]) return {screen:'training',id:decodeURIComponent(parts[1])};
   if (parts[0] === 'brands' && parts[1] && !parts[2]) {
     return { screen: 'machines', brandId: parts[1], machineId: null };
   }
@@ -31,10 +40,9 @@ export function navigationDepth() {
 
 export function parentRoute(route) {
   if (route.screen === 'brands') return null;
-  if (route.screen === 'machineDetail') {
-    return { screen: 'machines', brandId: route.brandId, machineId: null };
-  }
-  return { screen: 'brands', brandId: null, machineId: null };
+  if (['plan','training','planEdit','trainingPicker'].includes(route.screen)) return {screen:'plans'};
+  if (route.screen === 'machineDetail') return {screen:'machines',brandId:route.brandId,machineId:null};
+  return {screen:'brands',brandId:null,machineId:null};
 }
 
 export function writeRoute(route, replace = false) {

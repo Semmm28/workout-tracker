@@ -16,7 +16,7 @@ const swiftPackage = await read('ios/App/CapApp-SPM/Package.swift');
 
 assert.equal(config.webDir, 'dist');
 assert.equal(config.loggingBehavior, 'none', 'Native bridge logs must not include private workout payloads.');
-for (const file of ['WorkoutEnvelope.swift', 'WorkoutCloudStore.swift', 'WorkoutCloudPlugin.swift', 'WorkoutWatchPlugin.swift', 'WatchModels.swift', 'PhoneModel.swift', 'PhoneStore.swift', 'PhoneMigration.swift', 'PhoneViews.swift', 'PhoneEditors.swift']) {
+for (const file of ['WorkoutEnvelope.swift', 'WorkoutCloudStore.swift', 'WorkoutCloudPlugin.swift', 'WorkoutWatchPlugin.swift', 'WatchModels.swift', 'PhoneModel.swift', 'TrainingModel.swift', 'TrainingViews.swift', 'PhoneStore.swift', 'PhoneMigration.swift', 'PhoneViews.swift', 'PhoneEditors.swift']) {
   assert.ok(project.includes(`${file} in Sources`), `${file} must compile into the iOS target.`);
 }
 assert.match(await read('ios/App/App/SceneDelegate.swift'), /UIHostingController\(rootView: PhoneRootView\(\)\)/);

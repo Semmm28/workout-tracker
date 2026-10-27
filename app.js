@@ -99,7 +99,7 @@ async function init() {
   lastDepth = navigationDepth();
   render();
   registerServiceWorker();
-  const isEditing = () => state.modal || state.confirmSheet
+  const isEditing = () => state.modal || state.confirmSheet || ['planEdit', 'training', 'trainingPicker'].includes(state.route.screen)
     || document.activeElement?.matches('input, textarea, select')
     || document.getElementById('bodyweight-value')?.value;
   void initializeWatchSync(async () => {

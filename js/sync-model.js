@@ -1,5 +1,7 @@
+import { validTraining } from './training-model.js';
+
 // The same ordering is implemented by WorkoutEnvelope in Swift.
-export const ENTITY_STORES = ['brands', 'machines', 'sets', 'bodyweights'];
+export const ENTITY_STORES = ['brands', 'machines', 'sets', 'bodyweights', 'plans', 'sessions'];
 
 export function entityKey(kind, id) {
   return `${kind}:${id}`;
@@ -37,5 +39,6 @@ export function validateEnvelope(envelope) {
   if (envelope.kind === 'sets' && typeof record.machineId !== 'string') throw new Error('Ongeldig apparaat');
   if (['sets', 'bodyweights'].includes(envelope.kind) && (!record.loggedAt || !Number.isFinite(Number(record.weight)))) throw new Error('Ongeldige meting');
   if (envelope.kind === 'sets' && !Number.isFinite(Number(record.reps))) throw new Error('Ongeldige herhalingen');
+  if (['plans', 'sessions'].includes(envelope.kind) && !validTraining(record, envelope.kind)) throw new Error('Ongeldig schema of training');
   return record;
 }

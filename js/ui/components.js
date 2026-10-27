@@ -2,6 +2,7 @@ import { ACTION_WIDTH, icon } from '../constants.js';
 import { state } from '../state.js';
 import {
   escapeAttr,
+  formatWeight,
   safeText,
   toInputDate,
   toInputTime,
@@ -76,7 +77,7 @@ function renderTab({ action, label, iconName, active }) {
 }
 
 export function renderBottomNavigation() {
-  const workoutScreens = new Set(['brands', 'machines', 'machineDetail']);
+  const workoutScreens = new Set(['brands', 'machines', 'machineDetail', 'plans', 'plan', 'training', 'planEdit', 'trainingPicker']);
   const screen = state.route.screen;
 
   return `
@@ -199,6 +200,7 @@ export function renderModal() {
                   <span class="quick-log-machine-copy">
                     <strong>${safeText(machine.name)}</strong>
                     <span>${safeText(brand?.name || 'Onbekend merk')}</span>
+                    <span>${state.lastSets.get(machine.id) ? `Vorige set: ${safeText(formatWeight(state.lastSets.get(machine.id).weight))} kg × ${safeText(state.lastSets.get(machine.id).reps)}` : 'Nog geen set opgeslagen'}</span>
                   </span>
                   <span class="chevron" aria-hidden="true">${icon.chevron}</span>
                 </button>

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'workout-log-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v23`;
+const CACHE_NAME = `${CACHE_PREFIX}v25`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -23,6 +23,9 @@ const APP_SHELL = [
   './js/screens/workouts.js',
   './js/selectors.js',
   './js/state.js',
+  './js/training-model.js',
+  './js/training-controller.js',
+  './js/screens/training.js',
   './js/ui/components.js',
   './js/ui/forms.js',
   './js/ui/focus.js',

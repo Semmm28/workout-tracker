@@ -13,6 +13,37 @@ final class PhoneUITests: XCTestCase {
     private func shot(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    func testTrainingPlanSaveResumeAndFinish() {
+        let app = launch("--ui-test-migration")
+        app.staticTexts["Technogym"].tap()
+        XCTAssertTrue(app.staticTexts["Vorige set: 80 kg × 8"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.segmentedControls.buttons["Schema’s"].tap()
+        app.buttons["new-plan"].tap()
+        let name = app.textFields["plan-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Bovenlichaam A")
+        app.buttons["plan-add-machine"].tap()
+        app.buttons["choose-machine-fixture-machine"].tap()
+        app.buttons["save-plan"].tap()
+        XCTAssertTrue(app.staticTexts["Bovenlichaam A"].waitForExistence(timeout: 5))
+        app.staticTexts["Bovenlichaam A"].tap()
+        app.buttons["start-training"].tap()
+        let save = app.buttons["training-save-1"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5)); save.tap()
+        XCTAssertTrue(app.buttons["Set 1 ongedaan maken"].waitForExistence(timeout: 5))
+        shot("Schema - saved set and brand history")
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-test-reset" }; app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Workouts"].waitForExistence(timeout: 20))
+        app.segmentedControls.buttons["Schema’s"].tap()
+        app.buttons["Hervat Bovenlichaam A"].tap()
+        XCTAssertTrue(app.buttons["Set 1 ongedaan maken"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        app.buttons["finish-training"].tap()
+        app.buttons["Bewaar training"].tap()
+        XCTAssertTrue(app.staticTexts["1 sets · 640 kg volume"].waitForExistence(timeout: 5))
+        shot("Schema - completed workout")
+    }
     func testLegacyMigrationAndRelaunch() {
         let app = launch("--ui-test-migration")
         XCTAssertTrue(app.staticTexts["Technogym"].waitForExistence(timeout: 10))

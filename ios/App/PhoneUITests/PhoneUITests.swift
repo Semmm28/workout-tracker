@@ -28,10 +28,16 @@ final class PhoneUITests: XCTestCase {
         let input = app.textFields[identifier + "-input"]
         if !input.exists { app.segmentedControls["numeric-entry-mode"].buttons["Typen"].tap() }
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap()
-        let old = input.value as? String ?? ""
-        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + value)
-        XCTAssertTrue(app.buttons["numeric-done"].isEnabled)
-        app.buttons["numeric-done"].tap()
+        let displayed = input.value as? String ?? ""
+        let old = displayed == input.placeholderValue ? "" : displayed
+        if !old.isEmpty { input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count)) }
+        input.typeText(value)
+        let entered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: input)
+        XCTAssertEqual(XCTWaiter.wait(for: [entered], timeout: 5), .completed, input.debugDescription)
+        let done = app.buttons["numeric-done"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: done)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed, done.debugDescription)
+        done.tap()
         XCTAssertTrue(button.waitForExistence(timeout: 5))
     }
     private func chooseFixtureMachine(_ app: XCUIApplication) {

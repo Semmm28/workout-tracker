@@ -13,6 +13,7 @@ fi
 report() {
   xcrun xcresulttool export attachments --path build/PhoneUITests.xcresult --output-path build/ui-evidence || true
   xcrun xcresulttool get test-results summary --path build/PhoneUITests.xcresult || true
+  grep -n -E 'error:|Test Case.*(passed|failed)' build/xcode-ui-tests.log build/xcode-layout-tests.log 2>/dev/null | tail -n 20 || true
 }
 trap report EXIT
 xcrun simctl list -j > build/simulators.json
@@ -30,7 +31,7 @@ else:
     print(phones[0]["udid"])
 PY
 )
-xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -destination "platform=iOS Simulator,id=$device_id" \
   -derivedDataPath build/DerivedData -resultBundlePath build/PhoneUITests.xcresult \
   "${compact_tests[@]}" \
@@ -46,7 +47,7 @@ phone = next(t for t in d["devicetypes"] if t["name"] == "iPhone 15 Pro")
 print(subprocess.check_output(["xcrun", "simctl", "create", "Workout navigation UI tests", phone["identifier"], runtime["identifier"]], text=True).strip())
 PY
 )
-xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -destination "platform=iOS Simulator,id=$layout_device_id" \
   -derivedDataPath build/DerivedData -resultBundlePath build/PhoneLayoutUITests.xcresult \
   "${layout_tests[@]}" \

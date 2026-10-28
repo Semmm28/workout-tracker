@@ -305,13 +305,19 @@ struct TrainingMachinePicker: View {
                         })) {
                             machineRows(for: brand)
                         } label: {
-                            HStack {
-                                Text(brand.name).font(.headline)
-                                Spacer()
-                                let count = machines(for: brand).count
-                                Text("\(count) \(count == 1 ? "apparaat" : "apparaten")").font(.subheadline).foregroundStyle(.secondary)
-                            }.frame(minHeight: 44)
-                        }.accessibilityIdentifier("training-brand-\(brand.id)")
+                            Button {
+                                if expanded.contains(brand.id) { expanded.remove(brand.id) } else { expanded.insert(brand.id) }
+                            } label: {
+                                HStack {
+                                    Text(brand.name).font(.headline)
+                                    Spacer()
+                                    let count = machines(for: brand).count
+                                    Text("\(count) \(count == 1 ? "apparaat" : "apparaten")").font(.subheadline).foregroundStyle(.secondary)
+                                }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                                .accessibilityValue(expanded.contains(brand.id) ? "Uitgeklapt" : "Ingeklapt")
+                                .accessibilityIdentifier("training-brand-\(brand.id)")
+                        }
                     } else {
                         Section(brand.name) {
                             machineRows(for: brand)

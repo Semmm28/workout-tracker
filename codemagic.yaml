@@ -78,7 +78,7 @@ workflows:
       - name: Validate iOS configuration
         script: npm run check:ios
       - name: Test numeric entry and training on iPhone Simulator
-        script: bash scripts/test-ios-ui.sh inputs
+        script: bash scripts/test-ios-ui.sh inputs-layout
       - name: Apply uploaded distribution certificate and App Store profile
         script: |
           set -euo pipefail

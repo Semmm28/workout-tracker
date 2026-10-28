@@ -43,7 +43,7 @@ final class PhoneUITests: XCTestCase {
     private func chooseFixtureMachine(_ app: XCUIApplication) {
         let machine = app.buttons["choose-machine-fixture-machine"]
         XCTAssertFalse(machine.isHittable, "Brands start collapsed")
-        let brand = app.descendants(matching: .any).matching(identifier: "training-brand-fixture-brand").firstMatch
+        let brand = app.buttons["training-brand-fixture-brand"]
         brand.tap()
         XCTAssertTrue(machine.waitForExistence(timeout: 5))
         brand.tap()

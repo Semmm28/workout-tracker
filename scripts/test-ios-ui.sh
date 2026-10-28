@@ -6,17 +6,23 @@ layout_tests=(
   -only-testing:PhoneUITests/PhoneUITests/testTrainingPlanSaveResumeAndFinish
   -only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer
 )
-if [ "${1:-all}" = "inputs" ]; then
+if [[ "${1:-all}" = inputs* ]]; then
   compact_tests=(-only-testing:PhoneUITests/PhoneUITests/testLargeTextLoggingAndNavigation)
   layout_tests=(-only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer)
 fi
 report() {
-  xcrun xcresulttool export attachments --path build/PhoneUITests.xcresult --output-path build/ui-evidence || true
-  xcrun xcresulttool get test-results summary --path build/PhoneUITests.xcresult || true
+  for bundle in PhoneUITests PhoneLayoutUITests; do
+    [ -d "build/$bundle.xcresult" ] || continue
+    destination=build/ui-evidence
+    [ "$bundle" != PhoneLayoutUITests ] || destination=build/ui-layout-evidence
+    xcrun xcresulttool export attachments --path "build/$bundle.xcresult" --output-path "$destination" || true
+    xcrun xcresulttool get test-results summary --path "build/$bundle.xcresult" || true
+  done
   grep -n -E 'error:|Test Case.*(passed|failed)' build/xcode-ui-tests.log build/xcode-layout-tests.log 2>/dev/null | tail -n 20 || true
 }
 trap report EXIT
 xcrun simctl list -j > build/simulators.json
+if [ "${1:-all}" != inputs-layout ]; then
 device_id=$(python3 - <<'PY'
 import json, subprocess
 d = json.load(open("build/simulators.json"))
@@ -37,6 +43,7 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   "${compact_tests[@]}" \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
   test 2>&1 | tee build/xcode-ui-tests.log
+fi
 
 # Run the training flow on the reported iPhone form factor.
 layout_device_id=$(python3 - <<'PY'
@@ -53,5 +60,3 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   "${layout_tests[@]}" \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
   test 2>&1 | tee build/xcode-layout-tests.log
-xcrun xcresulttool export attachments --path build/PhoneLayoutUITests.xcresult --output-path build/ui-layout-evidence
-xcrun xcresulttool get test-results summary --path build/PhoneLayoutUITests.xcresult

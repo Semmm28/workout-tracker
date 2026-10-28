@@ -1,6 +1,6 @@
 import { getAll } from './database.js';
 import { state } from './state.js';
-import { readChartSeriesMode } from './utils.js';
+import { readChartSeriesMode, readTrainingPreferences } from './utils.js';
 import { compareSetsChronologically } from './selectors.js';
 
 export async function loadState() {
@@ -14,7 +14,7 @@ export async function loadState() {
   state.machines = machines.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
   state.sets = sets.sort((a, b) => new Date(b.loggedAt) - new Date(a.loggedAt));
   state.bodyweights = bodyweights.sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt));
-  state.plans = plans.sort((a,b)=>a.name.localeCompare(b.name));
+  state.plans = plans.sort((a,b)=>(a.sortOrder ?? 0)-(b.sortOrder ?? 0)||a.name.localeCompare(b.name));
   state.sessions = sessions.sort((a,b)=>Date.parse(b.loggedAt)-Date.parse(a.loggedAt));
   state.setsByMachine = new Map(); state.lastSets = new Map();
   for (const entry of state.sets) {
@@ -24,4 +24,5 @@ export async function loadState() {
     if (!last || compareSetsChronologically(entry, last) > 0) state.lastSets.set(entry.machineId, entry);
   }
   state.preferences.chartSeriesMode = readChartSeriesMode();
+  Object.assign(state.preferences, readTrainingPreferences());
 }

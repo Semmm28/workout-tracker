@@ -1,3 +1,4 @@
+import { state } from '../state.js';
 import { renderHeader } from '../ui/components.js';
 
 export function renderSettingsScreen() {
@@ -6,11 +7,20 @@ export function renderSettingsScreen() {
       <div class="screen-top fade-in">
         ${renderHeader({
           title: 'Instellingen',
-          subtitle: 'Importeer of exporteer je lokale data',
+          subtitle: 'Je training en gegevens',
         })}
       </div>
       <div class="screen-scroll">
         <div class="detail-stack fade-in">
+          <section class="chart-card slide-up"><div class="settings-stack">
+            <h3>Trainingsschema’s</h3>
+            <label class="field-group">Standaard aantal sets
+              <input id="training-default-sets" type="number" min="1" max="50" step="1" required value="${state.preferences.defaultSetCount}" aria-describedby="training-default-hint">
+            </label>
+            <p class="meta-text" id="training-default-hint">Voor nieuwe apparaten in een schema. Bestaande schema’s blijven hetzelfde.</p>
+            <label class="training-toggle"><span>Rusttimer gebruiken</span><input id="training-rest-enabled" type="checkbox" role="switch" ${state.preferences.restTimerEnabled?'checked':''} aria-describedby="training-rest-hint"></label>
+            <p class="meta-text" id="training-rest-hint">Start na het opslaan van een set tijdens een schematraining.</p>
+          </div></section>
           <section class="chart-card slide-up">
             <div class="settings-stack">
               <div class="settings-copy">

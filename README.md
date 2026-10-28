@@ -132,3 +132,5 @@ Because this is a static app, it can also be hosted on any static HTTPS host:
 - Cloudflare Pages
 
 The app still remains local-first because workout data is stored on the user's device in IndexedDB.
+
+Via Instellingen → Trainingsschema’s kies je het standaard aantal sets (begint op 2) voor nieuw toegevoegde apparaten en zet je de rusttimer aan of uit. Deze voorkeuren worden op dit apparaat bewaard; bestaande schema’s en back-ups behouden hun aantallen en rustduur. Via Wijzig bij Schema’s kun je schema’s bewerken, verwijderen en ordenen.

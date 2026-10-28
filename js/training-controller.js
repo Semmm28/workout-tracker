@@ -1,3 +1,4 @@
+import { persistTrainingPreferences } from './utils.js';
 import { state } from './state.js';
 import { loadState } from './data.js';
 import { getAll, writeChanges } from './database.js';
@@ -30,7 +31,7 @@ export function createTrainingController({render,navigate,showToast}) {
     const session=await freshest(), sets=await getAll('sets');
     const machineId=session.items.find(i=>i.id===itemId)?.machineId;
     if(!(await getAll('machines')).some(m=>m.id===machineId))throw new Error('Het apparaat is verwijderd. Kies een vervanger.');
-    await writeChanges(trainingSetChange(session,itemId,setId,weight,reps,sets,undo));await loadState();render();
+    await writeChanges(trainingSetChange(session,itemId,setId,weight,reps,sets,undo,state.preferences.restTimerEnabled));await loadState();render();
   }
   async function handle(action,target) {
     if(busy)return;
@@ -38,6 +39,14 @@ export function createTrainingController({render,navigate,showToast}) {
     const id=target.dataset.id;
     try {
       if(action==='training-plans')go('plans');
+      if(action==='training-manage'){ui.managing=!ui.managing;render();}
+      if(action==='training-plan-up'||action==='training-plan-down'){
+        const plans=[...state.plans],from=plans.findIndex(p=>p.id===id),to=from+(action==='training-plan-up'?-1:1);
+        if(from>=0&&to>=0&&to<plans.length){
+          [plans[from],plans[to]]=[plans[to],plans[from]];
+          await writeChanges(plans.map((p,sortOrder)=>({kind:'plans',id:p.id,record:{...p,sortOrder}})));await loadState();render();
+        }
+      }
       if(action==='training-plan')go('plan',id);
       if(action==='training-new'||action==='training-edit'){
         ui.editing=action==='training-edit';ui.draft=ui.editing?structuredClone(state.plans.find(p=>p.id===id)):newPlan();go('planEdit');
@@ -55,7 +64,7 @@ export function createTrainingController({render,navigate,showToast}) {
       if(action==='training-brands'){ui.brand=null;render();}
       if(action==='training-choose'){
         const machine=state.machines.find(m=>m.id===id);if(!machine)throw new Error('Dit apparaat is niet meer beschikbaar.');
-        if(ui.picker==='add'){if(ui.draft.items.length>=100)throw new Error('Maximaal 100 apparaten per schema.');ui.draft.items.push(planItem(machine,state.brands));go('planEdit');}
+        if(ui.picker==='add'){if(ui.draft.items.length>=100)throw new Error('Maximaal 100 apparaten per schema.');ui.draft.items.push(planItem(machine,state.brands,state.preferences.defaultSetCount));go('planEdit');}
         else {
           const session=(await getAll('sessions')).find(x=>x.id===ui.previous);
           const next=replaceTrainingItem(session,ui.picker,machine,state.brands,await getAll('sets'));
@@ -96,6 +105,20 @@ export function createTrainingController({render,navigate,showToast}) {
   }
   function wire() {
     clearInterval(timer);
+    for (const id of ['training-default-sets', 'training-rest-enabled']) {
+      document.getElementById(id)?.addEventListener('change', event => {
+        const input = event.target;
+        const next = { defaultSetCount: state.preferences.defaultSetCount, restTimerEnabled: state.preferences.restTimerEnabled };
+        if (id === 'training-default-sets') next.defaultSetCount = Number(input.value);
+        else next.restTimerEnabled = input.checked;
+        try { persistTrainingPreferences(next); Object.assign(state.preferences, next); }
+        catch (error) {
+          if (id === 'training-default-sets') input.value = state.preferences.defaultSetCount;
+          else input.checked = state.preferences.restTimerEnabled;
+          showToast(error.message || 'Instelling niet bewaard. Probeer opnieuw.');
+        }
+      });
+    }
     const form=document.getElementById('training-plan-form');
     if(form)wireAsyncForm(form,async()=>{
       capture();if(!validTraining(ui.draft,'plans')){ui.error='Geef het schema een naam, kies een apparaat en controleer je doelen.';render();return;}

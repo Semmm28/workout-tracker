@@ -99,7 +99,7 @@ test('dialogs trap keyboard focus, isolate the background, and restore their ope
   assert.equal(document.activeElement, row, 'Closing Edit returns to the set, not its hidden edit action');
 });
 
-test('an incoming app update keeps an open form until the user refreshes', async (t) => {
+test('an incoming app update keeps an open training item editor until the user refreshes', async (t) => {
   const descriptors = Object.fromEntries(['document', 'window', 'navigator'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   t.after(() => Object.entries(descriptors).forEach(([key, descriptor]) => {
     if (descriptor) Object.defineProperty(globalThis, key, descriptor);
@@ -107,7 +107,7 @@ test('an incoming app update keeps an open form until the user refreshes', async
   }));
   let update, reloads = 0, editing = true, message;
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { serviceWorker: { addEventListener: (_, callback) => { update = callback; } } } });
-  globalThis.document = { querySelector: () => editing ? {} : null };
+  globalThis.document = { querySelector: selector => editing && selector.split(',').map(value => value.trim()).includes('#training-item-form') ? {} : null };
   globalThis.window = { location: { reload: () => { reloads += 1; } } };
   const { setupServiceWorkerAutoRefresh } = await import('../js/pwa.js?draft-update');
   setupServiceWorkerAutoRefresh((text) => { message = text; });

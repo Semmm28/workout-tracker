@@ -8,7 +8,7 @@ const pwa = await readFile(new URL('../js/pwa.js', import.meta.url), 'utf8');
 
 test('service worker activation only removes older workout tracker caches', () => {
   assert.match(serviceWorker, /const CACHE_PREFIX = 'workout-log-shell-'/);
-  assert.match(serviceWorker, /const CACHE_NAME = `\$\{CACHE_PREFIX\}v28`/);
+  assert.match(serviceWorker, /const CACHE_NAME = `\$\{CACHE_PREFIX\}v29`/);
   assert.match(
     serviceWorker,
     /\.filter\(\(key\) => key\.startsWith\(CACHE_PREFIX\) && key !== CACHE_NAME\)/,
@@ -53,6 +53,7 @@ test('activation behavior preserves caches owned by another app', async () => {
         'workout-log-shell-v26',
         'workout-log-shell-v27',
         'workout-log-shell-v28',
+        'workout-log-shell-v29',
         'other-app-v1',
       ],
       delete: async (key) => {
@@ -87,7 +88,7 @@ test('activation behavior preserves caches owned by another app', async () => {
   });
   await activation;
 
-  assert.deepEqual(deleted, ['workout-log-shell-v16', 'workout-log-shell-v17', 'workout-log-shell-v18', 'workout-log-shell-v23', 'workout-log-shell-v24', 'workout-log-shell-v25', 'workout-log-shell-v26', 'workout-log-shell-v27']);
+  assert.deepEqual(deleted, ['workout-log-shell-v16', 'workout-log-shell-v17', 'workout-log-shell-v18', 'workout-log-shell-v23', 'workout-log-shell-v24', 'workout-log-shell-v25', 'workout-log-shell-v26', 'workout-log-shell-v27', 'workout-log-shell-v28']);
   assert.equal(claimed, true);
 });
 

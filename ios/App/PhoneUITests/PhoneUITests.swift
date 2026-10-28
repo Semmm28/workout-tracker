@@ -14,19 +14,52 @@ final class PhoneUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
     private func reveal(_ app: XCUIApplication, _ element: XCUIElement, upward: Bool = true) {
-        for _ in 0..<5 {
-            if element.exists && element.isHittable { return }
-            if upward { app.swipeUp() } else { app.swipeDown() }
+        for attempt in 0...8 {
+            let viewport = app.frame
+            let navigationBottom = app.navigationBars.allElementsBoundByIndex
+                .filter { $0.exists && !$0.frame.isEmpty && $0.frame.intersects(viewport) }
+                .map { $0.frame.maxY }.max() ?? viewport.minY
+            let tabTop = app.tabBars.allElementsBoundByIndex
+                .filter { $0.exists && !$0.frame.isEmpty && $0.frame.intersects(viewport) }
+                .map { $0.frame.minY }.min() ?? viewport.maxY
+            let top = navigationBottom + 8, bottom = tabTop - 8
+            guard bottom > top else { XCTFail("No visible scrolling area: \(app.debugDescription)"); return }
+            var scrollUp = upward
+            if element.exists, !element.frame.isEmpty {
+                let target = element.frame
+                if target.minY >= top && target.maxY <= bottom && element.isHittable { return }
+                // A sliver below the navigation bar can report hittable after an overshoot.
+                if target.minY < top { scrollUp = false }
+                else if target.maxY > bottom { scrollUp = true }
+            }
+            guard attempt < 8 else { XCTFail("Could not fully reveal element: \(element.debugDescription)\n\(app.debugDescription)"); return }
+            let distance = min(180, (bottom - top) * 0.35)
+            let middle = (top + bottom) / 2
+            let startY = middle + (scrollUp ? distance / 2 : -distance / 2)
+            let endY = middle + (scrollUp ? -distance / 2 : distance / 2)
+            let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            let start = origin.withOffset(CGVector(dx: 0, dy: startY - viewport.minY))
+            let end = origin.withOffset(CGVector(dx: 0, dy: endY - viewport.minY))
+            start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
-        XCTAssertTrue(element.isHittable, app.debugDescription)
     }
-    private func number(_ app: XCUIApplication, _ identifier: String, _ value: String) {
+    private func number(_ app: XCUIApplication, _ identifier: String, _ value: String, edgeTap: Bool = false) {
         let button = app.buttons[identifier]
         XCTAssertTrue(button.waitForExistence(timeout: 5))
-        // The empty edge of the value is a real touch target, not only its digits.
-        button.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
+        if edgeTap {
+            // Use only when the whole value button is visible, to verify its empty edge.
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
+        } else { button.tap() }
         let input = app.textFields[identifier + "-input"]
-        if !input.exists { app.segmentedControls["numeric-entry-mode"].buttons["Typen"].tap() }
+        let mode = app.segmentedControls["numeric-entry-mode"]
+        let presented = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in input.exists || mode.exists }, object: app)
+        guard XCTWaiter.wait(for: [presented], timeout: 5) == .completed else {
+            XCTFail("Number editor did not open for \(identifier): \(app.debugDescription)"); return
+        }
+        if !input.exists {
+            XCTAssertTrue(mode.buttons["Typen"].isHittable)
+            mode.buttons["Typen"].tap()
+        }
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap()
         let displayed = input.value as? String ?? ""
         let old = displayed == input.placeholderValue ? "" : displayed
@@ -38,6 +71,8 @@ final class PhoneUITests: XCTestCase {
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: done)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed, done.debugDescription)
         done.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: done)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
         XCTAssertTrue(button.waitForExistence(timeout: 5))
     }
     private func chooseFixtureMachine(_ app: XCUIApplication) {
@@ -148,6 +183,28 @@ final class PhoneUITests: XCTestCase {
         app.buttons["Annuleer"].tap()
         exercise.tap(); XCTAssertEqual(app.buttons["plan-item-rep-min"].value as? String, "5")
         app.buttons["Annuleer"].tap()
+        shot("Training plan - saved target and cancelled draft")
+    }
+    func testTrainingWeightDraftsAndTimer() {
+        let app = launch("--ui-test-migration")
+        app.tabBars.buttons["Instellingen"].tap()
+        app.buttons["default-set-count-increment"].tap()
+        let timer = app.switches["training-rest-timer"]
+        reveal(app, timer)
+        timer.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        app.tabBars.buttons["Workouts"].tap()
+        app.segmentedControls.buttons["Schema’s"].tap()
+        app.buttons["new-plan"].tap()
+        let name = app.textFields["plan-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Gewicht test")
+        app.buttons["plan-add-machine"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("Chest")
+        let machine = app.buttons["choose-machine-fixture-machine"]
+        XCTAssertTrue(machine.waitForExistence(timeout: 5)); machine.tap()
+        app.buttons["save-plan"].tap()
+        let plan = app.staticTexts["Gewicht test"]
+        XCTAssertTrue(plan.waitForExistence(timeout: 5)); plan.tap()
         app.buttons["start-training"].tap()
         XCTAssertTrue(app.buttons["training-weight-1"].waitForExistence(timeout: 5))
         assertNumber(app.buttons["training-weight-1"], 80)
@@ -258,7 +315,7 @@ final class PhoneUITests: XCTestCase {
         app.buttons["Set toevoegen"].firstMatch.tap()
         let weight = app.buttons["set-weight"], reps = app.buttons["set-reps"]
         XCTAssertTrue(weight.waitForExistence(timeout: 5)); assertNumber(weight, 80)
-        number(app, "set-weight", "82,75")
+        number(app, "set-weight", "82,75", edgeTap: true)
         reveal(app, reps); number(app, "set-reps", "8")
         XCTAssertTrue(app.buttons["save-top"].isHittable)
         shot("Large text quick and scroll controls")

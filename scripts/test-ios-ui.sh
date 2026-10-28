@@ -5,10 +5,17 @@ compact_tests=(-only-testing:PhoneUITests)
 layout_tests=(
   -only-testing:PhoneUITests/PhoneUITests/testTrainingPlanSaveResumeAndFinish
   -only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer
+  -only-testing:PhoneUITests/PhoneUITests/testTrainingWeightDraftsAndTimer
 )
 if [[ "${1:-all}" = inputs* ]]; then
   compact_tests=(-only-testing:PhoneUITests/PhoneUITests/testLargeTextLoggingAndNavigation)
-  layout_tests=(-only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer)
+  layout_tests=(
+    -only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer
+    -only-testing:PhoneUITests/PhoneUITests/testTrainingWeightDraftsAndTimer
+  )
+fi
+if [ "${1:-all}" = inputs-session ]; then
+  layout_tests=(-only-testing:PhoneUITests/PhoneUITests/testTrainingWeightDraftsAndTimer)
 fi
 report() {
   for bundle in PhoneUITests PhoneLayoutUITests; do
@@ -22,7 +29,7 @@ report() {
 }
 trap report EXIT
 xcrun simctl list -j > build/simulators.json
-if [ "${1:-all}" != inputs-layout ]; then
+if [[ "${1:-all}" != inputs-layout && "${1:-all}" != inputs-session ]]; then
 device_id=$(python3 - <<'PY'
 import json, subprocess
 d = json.load(open("build/simulators.json"))

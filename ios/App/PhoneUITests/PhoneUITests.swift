@@ -175,7 +175,10 @@ final class PhoneUITests: XCTestCase {
         app.buttons["Annuleer"].tap()
         app.tabBars.buttons["Recent"].tap(); shot("Recent activity")
         app.tabBars.buttons["Instellingen"].tap()
-        XCTAssertTrue(app.buttons["Exporteer data"].exists); XCTAssertTrue(app.buttons["Importeer data"].exists)
+        XCTAssertTrue(app.navigationBars["Instellingen"].waitForExistence(timeout: 5))
+        // Training preferences move the backup section below the fold on compact phones.
+        app.swipeUp()
+        XCTAssertTrue(app.buttons["Exporteer data"].isHittable); XCTAssertTrue(app.buttons["Importeer data"].isHittable)
         shot("Native backup settings")
     }
     func testLargeTextLoggingAndNavigation() {

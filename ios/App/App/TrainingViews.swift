@@ -300,11 +300,7 @@ struct TrainingMachinePicker: View {
                 else if brands.isEmpty { WorkoutEmptyState(title: "Geen apparaten gevonden", message: "Zoek op apparaat of merk.") }
                 ForEach(brands) { brand in
                     if query.isEmpty {
-                        DisclosureGroup(isExpanded: Binding(get: { expanded.contains(brand.id) }, set: { open in
-                            if open { expanded.insert(brand.id) } else { expanded.remove(brand.id) }
-                        })) {
-                            machineRows(for: brand)
-                        } label: {
+                        Section {
                             Button {
                                 if expanded.contains(brand.id) { expanded.remove(brand.id) } else { expanded.insert(brand.id) }
                             } label: {
@@ -313,10 +309,13 @@ struct TrainingMachinePicker: View {
                                     Spacer()
                                     let count = machines(for: brand).count
                                     Text("\(count) \(count == 1 ? "apparaat" : "apparaten")").font(.subheadline).foregroundStyle(.secondary)
+                                    Image(systemName: expanded.contains(brand.id) ? "chevron.down" : "chevron.right")
+                                        .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).accessibilityHidden(true)
                                 }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
                             }.buttonStyle(.plain)
                                 .accessibilityValue(expanded.contains(brand.id) ? "Uitgeklapt" : "Ingeklapt")
                                 .accessibilityIdentifier("training-brand-\(brand.id)")
+                            if expanded.contains(brand.id) { machineRows(for: brand) }
                         }
                     } else {
                         Section(brand.name) {

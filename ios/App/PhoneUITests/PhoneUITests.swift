@@ -132,7 +132,9 @@ final class PhoneUITests: XCTestCase {
         let name = app.textFields["plan-name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Instellingen test")
         app.buttons["plan-add-machine"].tap(); chooseFixtureMachine(app)
-        XCTAssertTrue(app.staticTexts["3 × 6–9 herhalingen"].exists)
+        let draftExercise = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "edit-plan-item-")).firstMatch
+        XCTAssertTrue(draftExercise.waitForExistence(timeout: 5))
+        XCTAssertTrue(draftExercise.label.contains("3 × 6–9 herhalingen"), draftExercise.label)
         app.buttons["save-plan"].tap()
         XCTAssertTrue(app.staticTexts["Instellingen test"].waitForExistence(timeout: 5))
         app.staticTexts["Instellingen test"].tap()

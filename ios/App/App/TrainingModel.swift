@@ -13,15 +13,16 @@ struct TrainingItem: Codable, Equatable, Identifiable, Sendable {
     var machineId: String
     var machineName: String
     var brandName: String
-    var setCount = 3
+    var setCount = 2
     var repMin = 8
     var repMax = 12
     var restSeconds = 90
     var sets: [TrainingSet]?
     var target: String { repMin == repMax ? "\(repMin)" : "\(repMin)–\(repMax)" }
 
-    init(machine: WorkoutRecord, brand: String) {
+    init(machine: WorkoutRecord, brand: String, setCount: Int = 2) {
         machineId = machine.id; machineName = machine.name; brandName = brand
+        self.setCount = (1...50).contains(setCount) ? setCount : 2
     }
     func prepared(history: [WorkoutRecord]) -> TrainingItem {
         var result = self

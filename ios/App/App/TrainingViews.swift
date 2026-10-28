@@ -3,13 +3,15 @@ import SwiftUI
 struct WorkoutsScreen: View {
     @State private var plans = false
     var body: some View {
-        Group { if plans { TrainingPlansScreen() } else { BrandScreen() } }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Picker("Weergave", selection: $plans) {
-                    Text("Apparaten").tag(false)
-                    Text("Schema’s").tag(true)
-                }.pickerStyle(.segmented).padding(.horizontal).padding(.bottom, 8).background(WorkoutStyle.background)
-            }
+        VStack(spacing: 0) {
+            Picker("Weergave", selection: $plans) {
+                Text("Apparaten").tag(false)
+                Text("Schema’s").tag(true)
+            }.pickerStyle(.segmented).padding(.horizontal).padding(.vertical, 8)
+            if plans { TrainingPlansScreen() } else { BrandScreen() }
+        }
+        .navigationTitle("Workouts").navigationBarTitleDisplayMode(.inline)
+        .background(WorkoutStyle.background)
     }
 }
 
@@ -27,6 +29,7 @@ struct TrainingPlansScreen: View {
     @EnvironmentObject private var store: PhoneStore
     @State private var editor: TrainingDocument?
     @State private var deletion: TrainingDocument?
+    @State private var editMode = EditMode.inactive
     var body: some View {
         List {
             ForEach(store.data.sessions.filter { $0.status == "active" }) { session in
@@ -39,31 +42,57 @@ struct TrainingPlansScreen: View {
             Section {
                 if store.data.plans.isEmpty { WorkoutEmptyState(title: "Je eigen trainingsschema", message: "Kies apparaten van je merken en stel sets, herhalingen en rust in.") }
                 ForEach(store.data.plans) { plan in
-                    NavigationLink { TrainingPlanScreen(planID: plan.id) } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(plan.name).font(.headline)
-                            Text("\(plan.items.count) apparaten · \(plan.items.reduce(0) { $0 + $1.setCount }) sets").font(.subheadline).foregroundStyle(.secondary)
-                            Text(Array(Set(plan.items.map(\.brandName))).sorted().joined(separator: " / ")).font(.caption).foregroundStyle(WorkoutStyle.accent)
-                        }.padding(.vertical, 8)
+                    HStack {
+                        if editMode.isEditing {
+                            Button { editor = plan } label: { planLabel(plan) }.buttonStyle(.plain)
+                                .accessibilityIdentifier("edit-plan-\(plan.id)")
+                            Spacer()
+                            Button { deletion = plan } label: { Image(systemName: "trash").frame(minWidth: 44, minHeight: 44) }
+                                .buttonStyle(.borderless).tint(.red).accessibilityLabel("Verwijder \(plan.name)")
+                        } else {
+                            NavigationLink { TrainingPlanScreen(planID: plan.id) } label: { planLabel(plan) }
+                        }
                     }
                     .swipeActions {
                         Button("Verwijder", role: .destructive) { deletion = plan }
                         Button("Wijzig") { editor = plan }.tint(.blue)
                     }
+                }.onMove { indices, destination in
+                    var rows = store.data.plans; rows.move(fromOffsets: indices, toOffset: destination)
+                    Task { await store.reorder(kind: "plans", ids: rows.map(\.id)) }
                 }
-                Button { editor = TrainingDocument() } label: { Label("Nieuw schema", systemImage: "plus") }.accessibilityIdentifier("new-plan")
             }
-        }.navigationTitle("Workouts")
+        }
+        .environment(\.editMode, $editMode)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(editMode.isEditing ? "Gereed" : "Wijzig") { editMode = editMode.isEditing ? .inactive : .active }
+                    .disabled(store.data.plans.isEmpty).accessibilityIdentifier("edit-plans")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { editor = TrainingDocument() } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("Nieuw schema").accessibilityIdentifier("new-plan")
+            }
+        }
         .sheet(item: $editor) { TrainingPlanEditor(plan: $0) }
         .confirmationDialog("Schema verwijderen?", isPresented: Binding(get: { deletion != nil }, set: { if !$0 { deletion = nil } }), titleVisibility: .visible) {
             if let deletion { Button("Verwijder schema", role: .destructive) { Task { await store.remove(kind: "plans", id: deletion.id) } } }
         } message: { Text("Je uitgevoerde trainingen en sets blijven bewaard.") }
         .scrollContentBackground(.hidden).background(WorkoutStyle.background)
     }
+    private func planLabel(_ plan: TrainingDocument) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(plan.name).font(.headline)
+            Text("\(plan.items.count) apparaten · \(plan.items.reduce(0) { $0 + $1.setCount }) sets").font(.subheadline).foregroundStyle(.secondary)
+            Text(Array(Set(plan.items.map(\.brandName))).sorted().joined(separator: " / ")).font(.caption).foregroundStyle(WorkoutStyle.accent)
+            if editMode.isEditing { Label("Schema wijzigen", systemImage: "pencil").font(.caption) }
+        }.padding(.vertical, 8)
+    }
 }
 
 struct TrainingPlanScreen: View {
     @EnvironmentObject private var store: PhoneStore
+    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
     let planID: String
     @State private var editor: TrainingDocument?
     @State private var sessionID: String?
@@ -76,7 +105,7 @@ struct TrainingPlanScreen: View {
                     ForEach(plan.items) { item in
                         VStack(alignment: .leading, spacing: 5) {
                             TrainingItemHeading(item: item)
-                            Text("\(item.setCount) × \(item.target) herhalingen · \(item.restSeconds) sec. rust").font(.subheadline).foregroundStyle(.secondary)
+                            Text("\(item.setCount) × \(item.target) herhalingen" + (restTimerEnabled && item.restSeconds > 0 ? " · \(item.restSeconds) sec. rust" : "")).font(.subheadline).foregroundStyle(.secondary)
                             PreviousSetLabel(set: store.data.setsByMachine[item.machineId]?.last)
                         }.padding(.vertical, 6)
                     }
@@ -119,6 +148,8 @@ struct TrainingItemHeading: View {
 
 struct TrainingPlanEditor: View {
     @EnvironmentObject private var store: PhoneStore
+    @AppStorage("trainingDefaultSetCount") private var defaultSetCount = 2
+    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
     @Environment(\.dismiss) private var dismiss
     @State private var draft: TrainingDocument
     @State private var picker = false
@@ -146,7 +177,7 @@ struct TrainingPlanEditor: View {
                                 Text("–")
                                 TextField("Tot", value: $item.repMax, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(minWidth: 40).accessibilityLabel("Maximum herhalingen")
                             }
-                            Stepper("Rust: \(item.restSeconds) seconden", value: $item.restSeconds, in: 0...3600, step: 15)
+                            if restTimerEnabled { Stepper("Rust: \(item.restSeconds) seconden", value: $item.restSeconds, in: 0...3600, step: 15) }
                         }.padding(.vertical, 6)
                     }.onDelete { draft.items.remove(atOffsets: $0) }.onMove { draft.items.move(fromOffsets: $0, toOffset: $1) }
                     Button { picker = true } label: { Label("Apparaat toevoegen", systemImage: "plus.circle") }
@@ -159,7 +190,7 @@ struct TrainingPlanEditor: View {
                 ToolbarItem(placement: .primaryAction) { Button("Bewaar") { save() }.disabled(busy).accessibilityIdentifier("save-plan") }
                 ToolbarItem(placement: .bottomBar) { EditButton() }
             }
-            .sheet(isPresented: $picker) { TrainingMachinePicker { machine in draft.items.append(TrainingItem(machine: machine, brand: store.brandName(machine))) } }
+            .sheet(isPresented: $picker) { TrainingMachinePicker { machine in draft.items.append(TrainingItem(machine: machine, brand: store.brandName(machine), setCount: defaultSetCount)) } }
             .scrollContentBackground(.hidden).background(WorkoutStyle.background)
         }.interactiveDismissDisabled(busy)
     }
@@ -204,6 +235,7 @@ struct TrainingMachinePicker: View {
 
 struct TrainingSessionScreen: View {
     @EnvironmentObject private var store: PhoneStore
+    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
     let sessionID: String
     @State private var selected = ""
     @State private var picker = false
@@ -240,7 +272,7 @@ struct TrainingSessionScreen: View {
                         } label: { Label("Set toevoegen", systemImage: "plus") }
                         .disabled(busy || (item.sets?.count ?? 0) >= 50)
                     }
-                    if let until = session.restUntil.flatMap(WatchSet.date) {
+                    if restTimerEnabled, let until = session.restUntil.flatMap(WatchSet.date) {
                         Section {
                             TrainingRestTimer(until: until)
                             Button("Rust overslaan") { var next = session; next.restUntil = nil; save(next) }.disabled(busy)
@@ -293,6 +325,7 @@ struct TrainingSessionScreen: View {
 
 private struct TrainingSetRow: View {
     @EnvironmentObject private var store: PhoneStore
+    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
     let sessionID: String
     let itemID: String
     let set: TrainingSet
@@ -339,7 +372,7 @@ private struct TrainingSetRow: View {
         }
         busy = true
         Task {
-            do { try await store.trainingSet(sessionID: sessionID, itemID: itemID, setID: set.id, weight: value, reps: count, undo: undo) }
+            do { try await store.trainingSet(sessionID: sessionID, itemID: itemID, setID: set.id, weight: value, reps: count, undo: undo, restTimerEnabled: restTimerEnabled) }
             catch { store.error = error.localizedDescription }
             busy = false
         }

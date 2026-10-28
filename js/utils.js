@@ -136,6 +136,23 @@ export function persistChartSeriesMode(mode) {
   }
 }
 
+export function readTrainingPreferences() {
+  let value = {};
+  try { value = JSON.parse(localStorage.getItem('workout-training-preferences')) || {}; } catch {}
+  return {
+    defaultSetCount: Number.isInteger(value.defaultSetCount) && value.defaultSetCount >= 1 && value.defaultSetCount <= 50 ? value.defaultSetCount : 2,
+    restTimerEnabled: typeof value.restTimerEnabled === 'boolean' ? value.restTimerEnabled : true,
+  };
+}
+
+export function persistTrainingPreferences(value) {
+  if (!Number.isInteger(value.defaultSetCount) || value.defaultSetCount < 1 || value.defaultSetCount > 50 || typeof value.restTimerEnabled !== 'boolean') {
+    throw new Error('Kies een aantal sets van 1 tot 50.');
+  }
+  // Surface storage failures so the setting never appears saved when it is not.
+  localStorage.setItem('workout-training-preferences', JSON.stringify(value));
+}
+
 export function estimateE1rm(weight, reps) {
   return weight * (1 + reps / 30);
 }

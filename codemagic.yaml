@@ -45,6 +45,9 @@ workflows:
       - build/xcode-simulator.log
       - build/xcode-ui-tests.log
       - build/PhoneUITests.xcresult
+      - build/PhoneLayoutUITests.xcresult
+      - build/xcode-layout-tests.log
+      - build/ui-layout-evidence/**
       - build/ui-evidence/**
       - build/native-backup.json
 
@@ -110,6 +113,9 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
       - build/xcode-ui-tests.log
       - build/PhoneUITests.xcresult
+      - build/PhoneLayoutUITests.xcresult
+      - build/xcode-layout-tests.log
+      - build/ui-layout-evidence/**
       - build/ui-evidence/**
       - build/native-backup.json
     publishing:

@@ -145,7 +145,7 @@ struct PhoneSnapshot: Codable, Equatable, Sendable {
         }.sorted { Self.ordered($0, $1, kind: kind) }
     }
     static func ordered(_ a: WorkoutRecord, _ b: WorkoutRecord, kind: String) -> Bool {
-        if kind == "brands" || kind == "machines" {
+        if kind == "brands" || kind == "machines" || kind == "plans" {
             if a.number("sortOrder") != b.number("sortOrder") { return a.number("sortOrder") < b.number("sortOrder") }
             if a.name != b.name { return a.name.localizedStandardCompare(b.name) == .orderedAscending }
         } else if a.date != b.date { return a.date < b.date }
@@ -311,7 +311,7 @@ actor PhoneRepository {
         for (kind, rows) in backup.collections { for row in rows { try next.put(kind: kind, record: row, updateTimestamp: false) } }
         return try commit(next)
     }
-    func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool) throws {
+    func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool, restTimerEnabled: Bool = true) throws {
         let data = presentation()
         guard let original = data.sessionRecords[sessionID], var session = data.sessions.first(where: { $0.id == sessionID }), session.status == "active",
               let item = session.items.first(where: { $0.id == itemID }), let planned = item.sets?.first(where: { $0.id == setID }) else { throw PhoneDataError.trainingFinished }
@@ -329,7 +329,7 @@ actor PhoneRepository {
                                        "trainingItemId": .string(itemID), "weight": .number(weight), "reps": .number(Double(reps)),
                                        "createdAt": .string(stamp), "loggedAt": .string(stamp)])
             try next.put(kind: "sets", record: saved)
-            session.restUntil = ISO8601DateFormatter().string(from: Date().addingTimeInterval(Double(item.restSeconds)))
+            session.restUntil = restTimerEnabled && item.restSeconds > 0 ? ISO8601DateFormatter().string(from: Date().addingTimeInterval(Double(item.restSeconds))) : nil
         }
         try next.put(kind: "sessions", record: session.record(preserving: original))
         _ = try commit(next)
@@ -431,7 +431,7 @@ struct PhonePresentation: Sendable {
         setsBySession = Dictionary(grouping: sets.filter { !$0.text("sessionId").isEmpty }) { $0.text("sessionId") }
         planRecords = Dictionary(uniqueKeysWithValues: rows("plans").map { ($0.id, $0) })
         sessionRecords = Dictionary(uniqueKeysWithValues: rows("sessions").map { ($0.id, $0) })
-        plans = rows("plans").compactMap { try? TrainingDocument(record: $0) }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        plans = rows("plans").compactMap { try? TrainingDocument(record: $0) }
         sessions = rows("sessions").reversed().compactMap { try? TrainingDocument(record: $0) }
         for (id, entries) in setsByMachine {
             let days = WorkoutMetrics.days(entries)

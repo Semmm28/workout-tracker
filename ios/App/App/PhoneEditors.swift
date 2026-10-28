@@ -122,6 +122,8 @@ struct WorkoutEditor: View {
 
 struct PhoneSettingsScreen: View {
     @EnvironmentObject private var store: PhoneStore
+    @AppStorage("trainingDefaultSetCount") private var defaultSetCount = 2
+    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
     @State private var importing = false
     @State private var exporting = false
     @State private var working = false
@@ -129,6 +131,13 @@ struct PhoneSettingsScreen: View {
     @State private var document = WorkoutBackupDocument(data: Data())
     var body: some View {
         Form {
+            Section {
+                Stepper("Standaard aantal sets: \(defaultSetCount)", value: $defaultSetCount, in: 1...50)
+                    .accessibilityIdentifier("default-set-count")
+                Toggle("Rusttimer gebruiken", isOn: $restTimerEnabled).accessibilityIdentifier("training-rest-timer")
+            } header: { Text("Trainingsschema’s") } footer: {
+                Text("Het aantal sets geldt voor nieuwe apparaten in een schema. Bestaande schema’s blijven hetzelfde. De rusttimer start na het opslaan van een set tijdens een schematraining.")
+            }
             Section("iCloud") {
                 Toggle("Synchroniseer met iCloud", isOn: Binding(get: { store.cloudEnabled }, set: { enabled in
                     if enabled { enableCloud = true } else { Task { await store.setCloudEnabled(false) } }

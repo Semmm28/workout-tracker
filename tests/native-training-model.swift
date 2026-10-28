@@ -13,13 +13,23 @@ struct NativeTrainingTests {
         let initial = await repo.presentation()
         precondition(initial.plans.count == 1 && initial.sessions.count == 1 && initial.sets.count == 2)
         let plan = initial.plans[0]
+        let machine = initial.machinesByID["tm"]!
+        precondition(TrainingItem(machine: machine, brand: "Technogym").setCount == 2)
+        precondition(TrainingItem(machine: machine, brand: "Technogym", setCount: 5).setCount == 5)
+        precondition(TrainingItem(machine: machine, brand: "Technogym", setCount: 0).setCount == 2)
         let session = try plan.started(using: initial)
         precondition(session.items[0].sets?.first?.weight == 60 && plan.items[0].sets == nil)
         _ = try await repo.save(kind: "sessions", record: session.record(), existing: false)
         let item = session.items[0], set = item.sets![0]
+        try await repo.trainingSet(sessionID: session.id, itemID: item.id, setID: set.id, weight: 62.5, reps: 8, undo: false, restTimerEnabled: false)
+        let noTimer = await repo.presentation()
+        precondition(noTimer.sessions.first { $0.id == session.id }?.restUntil == nil)
+        precondition(noTimer.setsByID[set.id]?.number("weight") == 62.5)
+        try await repo.trainingSet(sessionID: session.id, itemID: item.id, setID: set.id, weight: 62.5, reps: 8, undo: true)
         try await repo.trainingSet(sessionID: session.id, itemID: item.id, setID: set.id, weight: 62.5, reps: 8, undo: false)
         try await repo.trainingSet(sessionID: session.id, itemID: item.id, setID: set.id, weight: 62.5, reps: 8, undo: false)
         let saved = await repo.presentation()
+        precondition(saved.sessions.first { $0.id == session.id }?.restUntil != nil)
         precondition(saved.setsBySession[session.id]?.count == 1 && saved.sets.count == 3)
         precondition(saved.plans[0] == plan)
         var swapped = saved.sessions.first { $0.id == session.id }!
@@ -46,6 +56,15 @@ struct NativeTrainingTests {
         do { _ = try await repo.save(kind: "sessions", record: swapped.record(), existing: true); fatalError("Stale session reopened") } catch {}
         _ = try await repo.remove(kind: "plans", id: plan.id)
         let deleted = await repo.presentation(); precondition(deleted.sets.count == 3 && deleted.sessions.count == 2)
+        var a = plan; a.id = "ordered-a"; a.name = "A schema"
+        var z = plan; z.id = "ordered-z"; z.name = "Z schema"
+        _ = try await repo.save(kind: "plans", record: a.record(), existing: false)
+        _ = try await repo.save(kind: "plans", record: z.record(), existing: false)
+        _ = try await repo.reorder(kind: "plans", ids: [z.id, a.id])
+        let ordered = await repo.presentation(); precondition(ordered.plans.map(\.id) == [z.id, a.id])
+        a.name = "Renamed"
+        _ = try await repo.save(kind: "plans", record: a.record(preserving: ordered.planRecords[a.id]), existing: true)
+        let afterEdit = await repo.presentation(); precondition(afterEdit.plans.map(\.id) == [z.id, a.id])
         print("Native training: branded history, immutable plans, idempotent sets, swap, restart, v2 backup and completed-session protection passed.")
     }
 }

@@ -26,3 +26,22 @@ xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debu
   -derivedDataPath build/DerivedData -resultBundlePath build/PhoneUITests.xcresult \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
   test 2>&1 | tee build/xcode-ui-tests.log
+
+# Also cover the safe area and navigation bar on the reported iPhone form factor.
+layout_device_id=$(python3 - <<'PY'
+import json, subprocess
+d = json.load(open("build/simulators.json"))
+runtime = max((r for r in d["runtimes"] if r["isAvailable"] and "iOS" in r["name"]), key=lambda r: tuple(map(int, r["version"].split("."))))
+phone = next(t for t in d["devicetypes"] if t["name"] == "iPhone 15 Pro")
+print(subprocess.check_output(["xcrun", "simctl", "create", "Workout navigation UI tests", phone["identifier"], runtime["identifier"]], text=True).strip())
+PY
+)
+xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+  -destination "platform=iOS Simulator,id=$layout_device_id" \
+  -derivedDataPath build/DerivedData -resultBundlePath build/PhoneLayoutUITests.xcresult \
+  -only-testing:PhoneUITests/PhoneUITests/testTrainingPlanSaveResumeAndFinish \
+  -only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
+  test 2>&1 | tee build/xcode-layout-tests.log
+xcrun xcresulttool export attachments --path build/PhoneLayoutUITests.xcresult --output-path build/ui-layout-evidence
+xcrun xcresulttool get test-results summary --path build/PhoneLayoutUITests.xcresult

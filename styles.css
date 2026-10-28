@@ -1484,3 +1484,8 @@ input, textarea, select {
 .training-screen progress { width: 100%; height: 6px; accent-color: var(--accent); }
 .training-error { color: #ffb2b2; }
 .training-history { margin-bottom: 24px; }
+
+.training-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; }
+.training-toggle input { width: 24px; height: 24px; accent-color: var(--accent); flex: 0 0 auto; }
+
+.training-fields label[hidden] { display: none; }

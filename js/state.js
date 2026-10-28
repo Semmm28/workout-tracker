@@ -16,6 +16,6 @@ export const state = {
   toast: null,
   menuOpen: false,
   preferences: {
-    chartSeriesMode: 'e1rmMax',
+    chartSeriesMode: 'e1rmMax', defaultSetCount: 2, restTimerEnabled: true,
   },
 };

@@ -30,8 +30,8 @@ export function validTraining(record, kind) {
 }
 
 export function newPlan() { return { id:id(), name:'', createdAt:stamp(), items:[] }; }
-export function planItem(machine, brands) {
-  return { id:id(), machineId:machine.id, machineName:machine.name, brandName:brands.find(b=>b.id===machine.brandId)?.name || 'Onbekend merk', setCount:3, repMin:8, repMax:12, restSeconds:90 };
+export function planItem(machine, brands, setCount = 2) {
+  return { id:id(), machineId:machine.id, machineName:machine.name, brandName:brands.find(b=>b.id===machine.brandId)?.name || 'Onbekend merk', setCount:int(setCount,1,50)?setCount:2, repMin:8, repMax:12, restSeconds:90 };
 }
 export function trainingTarget(item) { return item.repMin === item.repMax ? String(item.repMin) : `${item.repMin}–${item.repMax}`; }
 export function prepareItem(item, history) {
@@ -64,7 +64,7 @@ export function replaceTrainingItem(session, itemId, machine, brands, savedSets)
   delete next.restUntil;
   return next;
 }
-export function trainingSetChange(session, itemId, setId, weight, reps, savedSets, undo=false) {
+export function trainingSetChange(session, itemId, setId, weight, reps, savedSets, undo=false, restTimerEnabled=true) {
   const item=session.items.find(e=>e.id===itemId), planned=item?.sets?.find(s=>s.id===setId);
   if(session.status!=='active'||!planned)throw new Error('Deze training is niet meer actief.');
   if(!number(weight,0,2000)||!int(reps,1,1000))throw new Error('Vul 0 tot 2000 kg en 1 tot 1000 herhalingen in.');
@@ -72,7 +72,7 @@ export function trainingSetChange(session, itemId, setId, weight, reps, savedSet
   if(undo?!existing:existing)return [];
   if(existing&&existing.sessionId!==session.id)throw new Error('Deze set hoort bij een andere training.');
   const now=stamp(), next=structuredClone(session);
-  if(undo)delete next.restUntil;else next.restUntil=new Date(Date.now()+item.restSeconds*1000).toISOString();
+  if(undo || !restTimerEnabled || item.restSeconds === 0)delete next.restUntil;else next.restUntil=new Date(Date.now()+item.restSeconds*1000).toISOString();
   return [{kind:'sets',id:setId,...(undo?{deleted:true}:{record:{id:setId,machineId:item.machineId,sessionId:session.id,trainingItemId:itemId,weight,reps,loggedAt:now,createdAt:now}})},
     {kind:'sessions',id:session.id,record:next}];
 }

@@ -34,7 +34,11 @@ final class PhoneStore: ObservableObject {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--ui-test-empty") || ProcessInfo.processInfo.arguments.contains("--ui-test-migration") || ProcessInfo.processInfo.arguments.contains("--ui-test-large-history") {
                 url = try WatchFiles.url("phone-ui-test-v1.json")
-                if ProcessInfo.processInfo.arguments.contains("--ui-test-reset") { try? FileManager.default.removeItem(at: url) }
+                if ProcessInfo.processInfo.arguments.contains("--ui-test-reset") {
+                    try? FileManager.default.removeItem(at: url)
+                    UserDefaults.standard.removeObject(forKey: "trainingDefaultSetCount")
+                    UserDefaults.standard.removeObject(forKey: "trainingRestTimerEnabled")
+                }
             }
             #endif
             let targetURL = url
@@ -94,9 +98,9 @@ final class PhoneStore: ObservableObject {
         let original = kind == "plans" ? data.planRecords[document.id] : data.sessionRecords[document.id]
         try await save(kind: kind, row: document.record(preserving: original), existing: existing)
     }
-    func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool) async throws {
+    func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool, restTimerEnabled: Bool = true) async throws {
         guard let repository else { throw PhoneDataError.notReady }
-        try await repository.trainingSet(sessionID: sessionID, itemID: itemID, setID: setID, weight: weight, reps: reps, undo: undo)
+        try await repository.trainingSet(sessionID: sessionID, itemID: itemID, setID: setID, weight: weight, reps: reps, undo: undo, restTimerEnabled: restTimerEnabled)
         await reload(); Task { await refresh() }
     }
     func remove(kind: String, id: String) async {

@@ -65,7 +65,8 @@ final class PhoneUITests: XCTestCase {
         count.buttons.element(boundBy: 1).tap()
         XCTAssertTrue(count.label.contains("3"))
         let timer = app.switches["training-rest-timer"]
-        timer.tap()
+        // SwiftUI exposes the whole row; its center is the label, not the switch.
+        timer.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(timer.value as? String, "0")
         shot("Training settings - three sets and timer disabled")
         app.terminate()
@@ -87,7 +88,7 @@ final class PhoneUITests: XCTestCase {
         XCTAssertTrue(app.buttons["training-save-1"].waitForExistence(timeout: 5)); app.buttons["training-save-1"].tap()
         XCTAssertTrue(app.buttons["Set 1 ongedaan maken"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Rust overslaan"].exists)
-        app.tabBars.buttons["Instellingen"].tap(); timer.tap()
+        app.tabBars.buttons["Instellingen"].tap(); timer.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         app.tabBars.buttons["Workouts"].tap()
         if !app.buttons["training-save-2"].isHittable { app.swipeUp() }
         app.buttons["training-save-2"].tap()

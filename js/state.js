@@ -1,7 +1,7 @@
 export const state = {
   ready: false,
   plans: [], sessions: [], setsByMachine: new Map(), lastSets: new Map(),
-  trainingUI: { draft: null, editing: false, current: 0, picker: null, brand: null, previous: null, error: '' },
+  trainingUI: { draft: null, itemDraft: null, itemReturn: null, editing: false, current: 0, picker: null, pickerSearch: '', pickerExpanded: [], previous: null, setDrafts: {}, error: '' },
   brands: [],
   machines: [],
   sets: [],
@@ -15,6 +15,6 @@ export const state = {
   toast: null,
   menuOpen: false,
   preferences: {
-    chartSeriesMode: 'e1rmMax', defaultSetCount: 2, restTimerEnabled: true,
+    chartSeriesMode: 'e1rmMax', defaultSetCount: 2, defaultRepMin: 5, defaultRepMax: 8, restTimerEnabled: true,
   },
 };

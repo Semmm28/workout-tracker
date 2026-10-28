@@ -26,7 +26,7 @@ export function renderLoadingMarkup() {
 }
 
 export function renderAppMarkup() {
-  let screen = ['plans','plan','planEdit','trainingPicker','training'].includes(state.route.screen) ? renderTrainingScreen() : '';
+  let screen = ['plans','plan','planEdit','planItemEdit','trainingPicker','training'].includes(state.route.screen) ? renderTrainingScreen() : '';
   if (state.route.screen === 'brands') screen = renderBrandsScreen();
   if (state.route.screen === 'machines') screen = renderMachinesScreen();
   if (state.route.screen === 'machineDetail') screen = renderMachineDetailScreen();

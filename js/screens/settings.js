@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { renderHeader } from '../ui/components.js';
+import { renderNumericField } from '../ui/forms.js';
 
 export function renderSettingsScreen() {
   return `
@@ -14,9 +15,11 @@ export function renderSettingsScreen() {
         <div class="detail-stack fade-in">
           <section class="chart-card slide-up"><div class="settings-stack">
             <h3>Trainingsschema’s</h3>
-            <label class="field-group">Standaard aantal sets
-              <input id="training-default-sets" type="number" min="1" max="50" step="1" required value="${state.preferences.defaultSetCount}" aria-describedby="training-default-hint">
-            </label>
+            ${renderNumericField({id:'training-default-sets',name:'defaultSetCount',label:'Standaard aantal sets',value:state.preferences.defaultSetCount,min:1,max:50,integer:true,scroll:true})}
+            <div class="training-fields">
+              ${renderNumericField({id:'training-default-rep-min',name:'defaultRepMin',label:'Standaard herhalingen vanaf',value:state.preferences.defaultRepMin,min:1,max:1000,integer:true,scroll:true})}
+              ${renderNumericField({id:'training-default-rep-max',name:'defaultRepMax',label:'Standaard herhalingen tot',value:state.preferences.defaultRepMax,min:1,max:1000,integer:true,scroll:true})}
+            </div>
             <p class="meta-text" id="training-default-hint">Voor nieuwe apparaten in een schema. Bestaande schema’s blijven hetzelfde.</p>
             <label class="training-toggle"><span>Rusttimer gebruiken</span><input id="training-rest-enabled" type="checkbox" role="switch" ${state.preferences.restTimerEnabled?'checked':''} aria-describedby="training-rest-hint"></label>
             <p class="meta-text" id="training-rest-hint">Start na het opslaan van een set tijdens een schematraining.</p>

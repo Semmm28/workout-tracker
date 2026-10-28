@@ -17,12 +17,11 @@ import {
 } from './repository.js';
 import { state } from './state.js';
 import { renderToast } from './ui/components.js';
-import { wireAsyncForm } from './ui/forms.js';
+import { parseNumericInput, wireAsyncForm, wireNumericFields } from './ui/forms.js';
 import { wireSwipeRows } from './ui/gestures.js';
 import {
   debounce,
   formatDateKey,
-  formatWeight,
   normalizeOptionalRpe,
   parseBodyweightDate,
   parseDateTime,
@@ -45,6 +44,10 @@ export function createController({ render, navigate, goBack, refreshApp }) {
   }
 
   function openSetModal(mode, data = null) {
+    if(mode==='create'){
+      const previous=state.lastSets.get(state.route.machineId);
+      data=previous?{weight:previous.weight,reps:previous.reps}:null;
+    }
     state.modal = { type: 'set', mode, data };
     render();
   }
@@ -188,10 +191,11 @@ export function createController({ render, navigate, goBack, refreshApp }) {
       wireAsyncForm(setForm, async () => {
         const modal = state.modal;
         const form = new FormData(setForm);
-        const weight = String(form.get('weight') || '').trim();
-        const reps = String(form.get('reps') || '').trim();
-        const rpe = normalizeOptionalRpe(form.get('rpe'));
-        if (!weight || !reps) return;
+        const weight = parseNumericInput(form.get('weight'));
+        const reps = parseNumericInput(form.get('reps'));
+        const rawRpe=String(form.get('rpe')||'').trim();
+        const rpe = normalizeOptionalRpe(rawRpe?parseNumericInput(rawRpe):'');
+        if (!Number.isFinite(weight) || weight<0 || !Number.isInteger(reps) || reps<0) return;
         if (rpe === null) return;
         const payload = {
           weight,
@@ -213,10 +217,10 @@ export function createController({ render, navigate, goBack, refreshApp }) {
     if (bodyweightForm) {
       wireAsyncForm(bodyweightForm, async () => {
         const form = new FormData(bodyweightForm);
-        const weight = Number(String(form.get('weight') || '').trim());
+        const weight = parseNumericInput(form.get('weight'));
         const loggedAt = parseBodyweightDate(String(form.get('date') || '').trim());
         if (!Number.isFinite(weight) || weight <= 0 || !formatDateKey(loggedAt)) return;
-        await saveBodyweight({ loggedAt, weight: formatWeight(weight) });
+        await saveBodyweight({ loggedAt, weight: String(weight) });
         bodyweightForm.reset();
         render();
       }, showToast);
@@ -424,6 +428,7 @@ export function createController({ render, navigate, goBack, refreshApp }) {
   }
 
   function wireRenderedUi() {
+    wireNumericFields();
     wireInputs();
     wireForms();
     training.wire();

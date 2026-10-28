@@ -1489,3 +1489,36 @@ input, textarea, select {
 .training-toggle input { width: 24px; height: 24px; accent-color: var(--accent); flex: 0 0 auto; }
 
 .training-fields label[hidden] { display: none; }
+
+/* The whole input stays tappable; quick steps never round a manually typed value. */
+.numeric-controls { display: grid; grid-template-columns: 48px minmax(70px,1fr) 48px; align-items: stretch; gap: 8px; min-width: 0; }
+.numeric-controls input { min-height: 52px; text-align: center; font-size: 20px; font-variant-numeric: tabular-nums; padding: 12px 8px; }
+.numeric-step { min-width: 48px; min-height: 52px; border-radius: 16px; background: rgba(157,184,255,.12); color: var(--accent); font-size: 26px; }
+.numeric-step:disabled { opacity: .35; }
+.numeric-field label { min-height: 24px; }
+.numeric-picker { min-width: 0; }
+.numeric-picker summary { padding: 10px 0; min-height: 44px; color: var(--accent); font-size: 14px; }
+.numeric-picker select { height: 190px; padding: 4px; text-align: center; font-size: 20px; font-variant-numeric: tabular-nums; }
+.numeric-picker option { padding: 10px; }
+.numeric-controls input:focus-visible, .numeric-step:focus-visible, .numeric-picker summary:focus-visible,
+.training-item-button:focus-visible, .training-machine-choice:focus-visible, .training-brand-group summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.training-fields, .training-set-inputs { grid-template-columns: minmax(0,1fr); gap: 16px; }
+.training-set-inputs > .primary-btn { min-height: 48px; }
+.training-item-button { display: block; width: 100%; text-align: left; color: var(--text); }
+.training-edit-hint { display: flex; align-items: center; justify-content: space-between; color: var(--accent); margin-top: 12px; min-height: 24px; }
+.training-edit-hint svg, .training-brand-group summary > svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.training-brand-group { border-bottom: 1px solid var(--line); }
+.training-brand-group summary { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 4px; list-style: none; }
+.training-brand-group summary::-webkit-details-marker { display: none; }
+.training-brand-group summary > span:first-child { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+.training-brand-group[open] summary > svg { transform: rotate(90deg); }
+.training-machine-choice { display: block; width: 100%; text-align: left; padding: 16px; min-height: 64px; color: var(--text); border-top: 1px solid var(--line); }
+.training-machine-choice strong { overflow-wrap: anywhere; }
+@media (min-width: 700px) {
+  .training-fields { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .training-set-inputs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .training-set-inputs > .primary-btn { grid-column: 1 / -1; }
+}
+@media (max-width: 400px) {
+  .bodyweight-form .two-col { grid-template-columns: minmax(0,1fr); }
+}

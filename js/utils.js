@@ -139,8 +139,11 @@ export function persistChartSeriesMode(mode) {
 export function readTrainingPreferences() {
   let value = {};
   try { value = JSON.parse(localStorage.getItem('workout-training-preferences')) || {}; } catch {}
+  const validRange = Number.isInteger(value.defaultRepMin) && value.defaultRepMin >= 1 && Number.isInteger(value.defaultRepMax) && value.defaultRepMax >= value.defaultRepMin && value.defaultRepMax <= 1000;
   return {
     defaultSetCount: Number.isInteger(value.defaultSetCount) && value.defaultSetCount >= 1 && value.defaultSetCount <= 50 ? value.defaultSetCount : 2,
+    defaultRepMin: validRange ? value.defaultRepMin : 5,
+    defaultRepMax: validRange ? value.defaultRepMax : 8,
     restTimerEnabled: typeof value.restTimerEnabled === 'boolean' ? value.restTimerEnabled : true,
   };
 }
@@ -148,6 +151,9 @@ export function readTrainingPreferences() {
 export function persistTrainingPreferences(value) {
   if (!Number.isInteger(value.defaultSetCount) || value.defaultSetCount < 1 || value.defaultSetCount > 50 || typeof value.restTimerEnabled !== 'boolean') {
     throw new Error('Kies een aantal sets van 1 tot 50.');
+  }
+  if (!Number.isInteger(value.defaultRepMin) || value.defaultRepMin < 1 || !Number.isInteger(value.defaultRepMax) || value.defaultRepMax < value.defaultRepMin || value.defaultRepMax > 1000) {
+    throw new Error('Kies een reprange van 1 tot 1000; het maximum moet minstens het minimum zijn.');
   }
   // Surface storage failures so the setting never appears saved when it is not.
   localStorage.setItem('workout-training-preferences', JSON.stringify(value));

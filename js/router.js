@@ -3,6 +3,7 @@ export function routeToHash(route) {
   if (route.screen === 'plan') return `#/plans/${encodeURIComponent(route.id)}`;
   if (route.screen === 'training') return `#/training/${encodeURIComponent(route.id)}`;
   if (route.screen === 'planEdit') return '#/plan-edit';
+  if (route.screen === 'planItemEdit') return '#/plan-item-edit';
   if (route.screen === 'trainingPicker') return '#/training-picker';
   if (route.screen === 'brands') return '#/brands';
   if (route.screen === 'machines') return `#/brands/${route.brandId}`;
@@ -21,7 +22,7 @@ export function deriveRouteFromHash(hash = location.hash) {
   if (value === 'settings') return { screen: 'settings', brandId: null, machineId: null };
   const parts = value.split('/');
   if (value === 'plans') return {screen:'plans'};
-  if (value === 'plan-edit' || value === 'training-picker') return {screen:'plans'};
+  if (value === 'plan-edit' || value === 'plan-item-edit' || value === 'training-picker') return {screen:'plans'};
   if (parts[0] === 'plans' && parts[1]) return {screen:'plan',id:decodeURIComponent(parts[1])};
   if (parts[0] === 'training' && parts[1]) return {screen:'training',id:decodeURIComponent(parts[1])};
   if (parts[0] === 'brands' && parts[1] && !parts[2]) {
@@ -40,7 +41,7 @@ export function navigationDepth() {
 
 export function parentRoute(route) {
   if (route.screen === 'brands') return null;
-  if (['plan','training','planEdit','trainingPicker'].includes(route.screen)) return {screen:'plans'};
+  if (['plan','training','planEdit','planItemEdit','trainingPicker'].includes(route.screen)) return {screen:'plans'};
   if (route.screen === 'machineDetail') return {screen:'machines',brandId:route.brandId,machineId:null};
   return {screen:'brands',brandId:null,machineId:null};
 }

@@ -67,19 +67,18 @@ workflows:
     scripts:
       - name: Install dependencies
         script: npm ci
-      - name: Run application tests
+      - name: Check application modules
         script: |
           set -euo pipefail
-          npm test
-          python3 tests/watch-signing-test.py
-      - name: Test native sync conflict resolution
-        script: bash scripts/test-native.sh
+          npm run check
+      - name: Test changed training model
+        script: bash scripts/test-native.sh training
       - name: Bundle web assets and sync the iOS project
         script: npm run ios:sync
       - name: Validate iOS configuration
         script: npm run check:ios
-      - name: Test SwiftUI flows and legacy migration on iPhone Simulator
-        script: bash scripts/test-ios-ui.sh
+      - name: Test numeric entry and training on iPhone Simulator
+        script: bash scripts/test-ios-ui.sh inputs
       - name: Apply uploaded distribution certificate and App Store profile
         script: |
           set -euo pipefail

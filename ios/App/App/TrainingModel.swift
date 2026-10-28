@@ -14,24 +14,30 @@ struct TrainingItem: Codable, Equatable, Identifiable, Sendable {
     var machineName: String
     var brandName: String
     var setCount = 2
-    var repMin = 8
-    var repMax = 12
+    var repMin = 5
+    var repMax = 8
     var restSeconds = 90
     var sets: [TrainingSet]?
     var target: String { repMin == repMax ? "\(repMin)" : "\(repMin)–\(repMax)" }
 
-    init(machine: WorkoutRecord, brand: String, setCount: Int = 2) {
+    init(machine: WorkoutRecord, brand: String, setCount: Int = 2, repMin: Int = 5, repMax: Int = 8) {
         machineId = machine.id; machineName = machine.name; brandName = brand
         self.setCount = (1...50).contains(setCount) ? setCount : 2
+        if (1...1000).contains(repMin), (repMin...1000).contains(repMax) {
+            self.repMin = repMin; self.repMax = repMax
+        }
+    }
+    func newSet(history: [WorkoutRecord]) -> TrainingSet {
+        let last = history.filter { $0.text("machineId") == machineId }.max(by: WorkoutMetrics.chronological)
+        let historicalReps = last.flatMap { Int(exactly: $0.number("reps")) }
+        let previousReps = historicalReps.flatMap { (0...1000).contains($0) ? $0 : nil }
+        return TrainingSet(weight: last?.number("weight") ?? 0, reps: previousReps.map { max(1, $0) } ?? repMin,
+                           previousWeight: last?.number("weight"), previousReps: previousReps)
     }
     func prepared(history: [WorkoutRecord]) -> TrainingItem {
         var result = self
-        let previous = WorkoutMetrics.days(history).first?.entries ?? []
-        result.sets = (0..<setCount).map { index in
-            let last = previous.isEmpty ? nil : previous[min(index, previous.count - 1)]
-            return TrainingSet(weight: last?.number("weight") ?? 0, reps: last.map { max(1, Int($0.number("reps"))) } ?? repMin,
-                               previousWeight: last?.number("weight"), previousReps: last.map { Int($0.number("reps")) })
-        }
+        let suggestion = newSet(history: history)
+        result.sets = (0..<setCount).map { _ in var next = suggestion; next.id = "training-set-" + UUID().uuidString; return next }
         return result
     }
 }

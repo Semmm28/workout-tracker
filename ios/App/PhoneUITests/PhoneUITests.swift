@@ -13,6 +13,42 @@ final class PhoneUITests: XCTestCase {
     private func shot(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    private func reveal(_ app: XCUIApplication, _ element: XCUIElement, upward: Bool = true) {
+        for _ in 0..<5 {
+            if element.exists && element.isHittable { return }
+            if upward { app.swipeUp() } else { app.swipeDown() }
+        }
+        XCTAssertTrue(element.isHittable, app.debugDescription)
+    }
+    private func number(_ app: XCUIApplication, _ identifier: String, _ value: String) {
+        let button = app.buttons[identifier]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        // The empty edge of the value is a real touch target, not only its digits.
+        button.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
+        let input = app.textFields[identifier + "-input"]
+        if !input.exists { app.segmentedControls["numeric-entry-mode"].buttons["Typen"].tap() }
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap()
+        let old = input.value as? String ?? ""
+        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + value)
+        XCTAssertTrue(app.buttons["numeric-done"].isEnabled)
+        app.buttons["numeric-done"].tap()
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+    }
+    private func chooseFixtureMachine(_ app: XCUIApplication) {
+        let machine = app.buttons["choose-machine-fixture-machine"]
+        XCTAssertFalse(machine.isHittable, "Brands start collapsed")
+        let brand = app.descendants(matching: .any).matching(identifier: "training-brand-fixture-brand").firstMatch
+        brand.tap()
+        XCTAssertTrue(machine.waitForExistence(timeout: 5))
+        brand.tap()
+        XCTAssertFalse(machine.isHittable)
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("Chest")
+        XCTAssertTrue(machine.waitForExistence(timeout: 5)); machine.tap()
+    }
+    private func assertNumber(_ element: XCUIElement, _ expected: Double) {
+        XCTAssertEqual(Double((element.value as? String ?? "").replacingOccurrences(of: ",", with: ".")), expected)
+    }
     func testTrainingPlanSaveResumeAndFinish() {
         let app = launch("--ui-test-migration")
         XCTAssertTrue(app.navigationBars["Workouts"].staticTexts["Workouts"].isHittable)
@@ -28,8 +64,8 @@ final class PhoneUITests: XCTestCase {
         let name = app.textFields["plan-name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Bovenlichaam A")
         app.buttons["plan-add-machine"].tap()
-        app.buttons["choose-machine-fixture-machine"].tap()
-        XCTAssertTrue(app.steppers["Sets: 2"].exists)
+        chooseFixtureMachine(app)
+        XCTAssertTrue(app.staticTexts["2 × 5–8 herhalingen · 90 sec. rust"].exists)
         app.buttons["save-plan"].tap()
         XCTAssertTrue(app.staticTexts["Bovenlichaam A"].waitForExistence(timeout: 5))
         app.buttons["edit-plans"].tap()
@@ -59,12 +95,20 @@ final class PhoneUITests: XCTestCase {
     func testTrainingPreferencesPersistAndControlNewSetsAndTimer() {
         let app = launch("--ui-test-migration")
         app.tabBars.buttons["Instellingen"].tap()
-        let count = app.steppers["default-set-count"]
+        let count = app.buttons["default-set-count"]
         XCTAssertTrue(count.waitForExistence(timeout: 5))
-        XCTAssertTrue(count.label.contains("2"))
-        count.buttons.element(boundBy: 1).tap()
-        XCTAssertTrue(count.label.contains("3"))
+        XCTAssertEqual(count.value as? String, "2")
+        XCTAssertEqual(app.buttons["default-rep-min"].value as? String, "5")
+        XCTAssertEqual(app.buttons["default-rep-max"].value as? String, "8")
+        app.buttons["default-set-count-increment"].tap()
+        XCTAssertEqual(count.value as? String, "3")
+        app.buttons["default-rep-min"].tap()
+        XCTAssertTrue(app.pickerWheels.firstMatch.waitForExistence(timeout: 5))
+        app.pickerWheels.firstMatch.adjust(toPickerWheelValue: "6")
+        app.buttons["numeric-done"].tap()
+        number(app, "default-rep-max", "9")
         let timer = app.switches["training-rest-timer"]
+        reveal(app, timer)
         // SwiftUI exposes the whole row; its center is the label, not the switch.
         timer.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(timer.value as? String, "0")
@@ -72,28 +116,48 @@ final class PhoneUITests: XCTestCase {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-test-reset" }; app.launch()
         app.tabBars.buttons["Instellingen"].tap()
-        XCTAssertTrue(count.waitForExistence(timeout: 5)); XCTAssertTrue(count.label.contains("3"))
+        XCTAssertTrue(count.waitForExistence(timeout: 5)); XCTAssertEqual(count.value as? String, "3")
+        XCTAssertEqual(app.buttons["default-rep-min"].value as? String, "6")
+        XCTAssertEqual(app.buttons["default-rep-max"].value as? String, "9")
         XCTAssertEqual(timer.value as? String, "0")
         app.tabBars.buttons["Workouts"].tap()
         app.segmentedControls.buttons["Schema’s"].tap()
         app.buttons["new-plan"].tap()
         let name = app.textFields["plan-name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Instellingen test")
-        app.buttons["plan-add-machine"].tap(); app.buttons["choose-machine-fixture-machine"].tap()
-        XCTAssertTrue(app.steppers["Sets: 3"].exists)
-        XCTAssertFalse(app.steppers["Rust: 90 seconden"].exists)
+        app.buttons["plan-add-machine"].tap(); chooseFixtureMachine(app)
+        XCTAssertTrue(app.staticTexts["3 × 6–9 herhalingen"].exists)
         app.buttons["save-plan"].tap()
         XCTAssertTrue(app.staticTexts["Instellingen test"].waitForExistence(timeout: 5))
-        app.staticTexts["Instellingen test"].tap(); app.buttons["start-training"].tap()
-        XCTAssertTrue(app.buttons["training-save-1"].waitForExistence(timeout: 5)); app.buttons["training-save-1"].tap()
+        app.staticTexts["Instellingen test"].tap()
+        let exercise = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "edit-plan-item-")).firstMatch
+        XCTAssertTrue(exercise.waitForExistence(timeout: 5)); exercise.tap()
+        number(app, "plan-item-rep-min", "5")
+        app.buttons["save-plan-item"].tap()
+        XCTAssertTrue(exercise.waitForExistence(timeout: 5)); exercise.tap()
+        XCTAssertEqual(app.buttons["plan-item-rep-min"].value as? String, "5")
+        number(app, "plan-item-rep-min", "4")
+        app.buttons["Annuleer"].tap()
+        exercise.tap(); XCTAssertEqual(app.buttons["plan-item-rep-min"].value as? String, "5")
+        app.buttons["Annuleer"].tap()
+        app.buttons["start-training"].tap()
+        XCTAssertTrue(app.buttons["training-weight-1"].waitForExistence(timeout: 5))
+        assertNumber(app.buttons["training-weight-1"], 80)
+        number(app, "training-weight-1", "82,75")
+        reveal(app, app.buttons["training-weight-2"]); number(app, "training-weight-2", "90")
+        reveal(app, app.buttons["training-save-1"], upward: false); app.buttons["training-save-1"].tap()
         XCTAssertTrue(app.buttons["Set 1 ongedaan maken"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Rust overslaan"].exists)
-        app.tabBars.buttons["Instellingen"].tap(); timer.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        reveal(app, app.buttons["training-weight-2"])
+        assertNumber(app.buttons["training-weight-2"], 90)
+        reveal(app, app.buttons["training-weight-3"])
+        assertNumber(app.buttons["training-weight-3"], 82.75)
+        app.tabBars.buttons["Instellingen"].tap(); reveal(app, timer); timer.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         app.tabBars.buttons["Workouts"].tap()
-        if !app.buttons["training-save-2"].isHittable { app.swipeUp() }
+        reveal(app, app.buttons["training-save-2"], upward: false)
         app.buttons["training-save-2"].tap()
         XCTAssertTrue(app.buttons["Set 2 ongedaan maken"].waitForExistence(timeout: 5))
-        app.swipeUp()
+        reveal(app, app.buttons["Rust overslaan"])
         XCTAssertTrue(app.buttons["Rust overslaan"].waitForExistence(timeout: 5))
         shot("Training - timer enabled after saving")
     }
@@ -154,19 +218,16 @@ final class PhoneUITests: XCTestCase {
         app.buttons["save-top"].tap()
         XCTAssertTrue(app.staticTexts["Leg Press"].waitForExistence(timeout: 5)); app.staticTexts["Leg Press"].tap()
         app.buttons["Set toevoegen"].firstMatch.tap()
-        let weight = app.textFields["set-weight"], reps = app.textFields["set-reps"]
-        XCTAssertTrue(weight.waitForExistence(timeout: 5)); weight.tap(); weight.typeText("0"); reps.tap(); reps.typeText("8")
-        XCTAssertTrue(app.buttons["save-top"].isEnabled); shot("Native set editor with keyboard")
+        let weight = app.buttons["set-weight"]
+        number(app, "set-weight", "0"); number(app, "set-reps", "8")
+        XCTAssertTrue(app.buttons["save-top"].isEnabled); shot("Native broad numeric controls")
         app.buttons["save-top"].tap()
         let zero = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "0 kg × 8")).firstMatch
         XCTAssertTrue(zero.waitForExistence(timeout: 5))
         let setID = zero.identifier
         zero.tap()
         XCTAssertTrue(weight.waitForExistence(timeout: 5)); XCTAssertTrue((weight.value as? String ?? "").hasPrefix("0"))
-        weight.tap()
-        weight.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
-        weight.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (weight.value as? String ?? "").count))
-        weight.typeText("2,5")
+        number(app, "set-weight", "2,5")
         app.buttons["save-top"].tap()
         let changed = app.buttons[setID]
         XCTAssertTrue(changed.waitForExistence(timeout: 5)); XCTAssertTrue(changed.label.contains("2,5 kg × 8"))
@@ -177,7 +238,7 @@ final class PhoneUITests: XCTestCase {
         app.tabBars.buttons["Instellingen"].tap()
         XCTAssertTrue(app.navigationBars["Instellingen"].waitForExistence(timeout: 5))
         // Training preferences move the backup section below the fold on compact phones.
-        app.swipeUp()
+        reveal(app, app.buttons["Importeer data"])
         XCTAssertTrue(app.buttons["Exporteer data"].isHittable); XCTAssertTrue(app.buttons["Importeer data"].isHittable)
         shot("Native backup settings")
     }
@@ -187,16 +248,24 @@ final class PhoneUITests: XCTestCase {
         app.staticTexts["Chest Press"].tap()
         shot("Accessibility text on compact screen")
         app.buttons["Set toevoegen"].firstMatch.tap()
-        let weight = app.textFields["set-weight"], reps = app.textFields["set-reps"]
-        XCTAssertTrue(weight.waitForExistence(timeout: 5)); weight.tap(); weight.typeText("82,5")
-        if !reps.isHittable { app.swipeUp() }
-        reps.tap(); reps.typeText("8")
+        let weight = app.buttons["set-weight"], reps = app.buttons["set-reps"]
+        XCTAssertTrue(weight.waitForExistence(timeout: 5)); assertNumber(weight, 80)
+        number(app, "set-weight", "82,75")
+        reveal(app, reps); number(app, "set-reps", "8")
         XCTAssertTrue(app.buttons["save-top"].isHittable)
-        shot("Large text editor with keyboard")
+        shot("Large text quick and scroll controls")
         app.buttons["save-top"].tap()
         XCTAssertTrue(app.navigationBars["Chest Press"].waitForExistence(timeout: 5))
+        app.buttons["Set toevoegen"].firstMatch.tap()
+        XCTAssertTrue(weight.waitForExistence(timeout: 5)); assertNumber(weight, 82.75)
+        app.buttons["Annuleer"].tap()
         app.tabBars.buttons["Gewicht"].tap()
         XCTAssertTrue(app.buttons["Meting toevoegen"].waitForExistence(timeout: 5))
+        app.buttons["Meting toevoegen"].tap()
+        number(app, "set-weight", "80,5")
+        app.buttons["set-weight-increment"].tap()
+        assertNumber(weight, 80.6)
+        app.buttons["save-top"].tap()
         shot("Large text bodyweight")
     }
     func testLargeHistorySaveAndScroll() {
@@ -209,9 +278,9 @@ final class PhoneUITests: XCTestCase {
         XCTAssertTrue(addButton.waitForExistence(timeout: 5))
         app.swipeUp(); app.swipeUp(); app.swipeDown()
         addButton.tap()
-        let weight = app.textFields["set-weight"], reps = app.textFields["set-reps"]
+        let weight = app.buttons["set-weight"]
         XCTAssertTrue(weight.waitForExistence(timeout: 5))
-        weight.tap(); weight.typeText("12,5"); reps.tap(); reps.typeText("8")
+        number(app, "set-weight", "12,5"); number(app, "set-reps", "8")
         let start = Date()
         app.buttons["save-top"].tap()
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: weight)

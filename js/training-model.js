@@ -30,18 +30,29 @@ export function validTraining(record, kind) {
 }
 
 export function newPlan() { return { id:id(), name:'', createdAt:stamp(), items:[] }; }
-export function planItem(machine, brands, setCount = 2) {
-  return { id:id(), machineId:machine.id, machineName:machine.name, brandName:brands.find(b=>b.id===machine.brandId)?.name || 'Onbekend merk', setCount:int(setCount,1,50)?setCount:2, repMin:8, repMax:12, restSeconds:90 };
+export function planItem(machine, brands, setCount = 2, repMin = 5, repMax = 8) {
+  const validRange = int(repMin,1,1000) && int(repMax,repMin,1000);
+  return { id:id(), machineId:machine.id, machineName:machine.name, brandName:brands.find(b=>b.id===machine.brandId)?.name || 'Onbekend merk', setCount:int(setCount,1,50)?setCount:2, repMin:validRange?repMin:5, repMax:validRange?repMax:8, restSeconds:90 };
 }
 export function trainingTarget(item) { return item.repMin === item.repMax ? String(item.repMin) : `${item.repMin}–${item.repMax}`; }
+export function latestMachineSet(history, machineId) {
+  return history.filter(set => set.machineId === machineId).reduce((latest, set) => !latest || compareSetsChronologically(set, latest) > 0 ? set : latest, null);
+}
+export function trainingMachineGroups(brands, machines, query = '') {
+  const search = query.trim().toLocaleLowerCase();
+  return brands.map(brand => ({ brand, machines: machines.filter(machine => machine.brandId === brand.id && (!search || brand.name.toLocaleLowerCase().includes(search) || machine.name.toLocaleLowerCase().includes(search))) })).filter(group => group.machines.length);
+}
+export function updatePlanItem(plan, item) {
+  if (!plan?.items.some(existing => existing.id === item.id)) throw new Error('Deze oefening is verwijderd. Open het schema opnieuw.');
+  const next = { ...plan, items: plan.items.map(existing => existing.id === item.id ? structuredClone(item) : existing) };
+  if (!validTraining(next, 'plans')) throw new Error('Controleer het aantal sets, de reprange en de rusttijd.');
+  return next;
+}
 export function prepareItem(item, history) {
-  const dayKey = s => { const d=new Date(s.loggedAt); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
-  const sorted = history.slice().sort(compareSetsChronologically);
-  const previous = sorted.length ? sorted.filter(s=>dayKey(s)===dayKey(sorted.at(-1))) : [];
-  return { ...item, sets:Array.from({length:item.setCount},(_,i)=>{
-    const old=previous[Math.min(i, previous.length-1)];
-    return {id:'training-set-'+id(), weight:Number(old?.weight ?? 0), reps:Math.max(1,Number(old?.reps ?? item.repMin)),
-      ...(old?{previousWeight:Number(old.weight),previousReps:Number(old.reps)}:{})};
+  const latest = latestMachineSet(history, item.machineId);
+  return { ...item, sets:Array.from({length:item.setCount},()=>{
+    return {id:'training-set-'+id(), weight:Number(latest?.weight ?? 0), reps:Math.max(1,Number(latest?.reps ?? item.repMin)),
+      ...(latest?{previousWeight:Number(latest.weight),previousReps:Number(latest.reps)}:{})};
   }) };
 }
 export function startTraining(plan, machines, brands, history) {
@@ -64,7 +75,16 @@ export function replaceTrainingItem(session, itemId, machine, brands, savedSets)
   delete next.restUntil;
   return next;
 }
-export function trainingSetChange(session, itemId, setId, weight, reps, savedSets, undo=false, restTimerEnabled=true) {
+export function addTrainingSet(session, itemId, savedSets) {
+  const next = structuredClone(session), item = next.items.find(item => item.id === itemId);
+  if (next.status !== 'active' || !item) throw new Error('Deze training is niet meer actief.');
+  if (item.sets.length >= 50) throw new Error('Maximaal 50 sets per apparaat.');
+  const previous = latestMachineSet(savedSets, item.machineId);
+  item.sets.push({ id:'training-set-'+id(), weight:Number(previous?.weight ?? item.sets.at(-1)?.weight ?? 0), reps:Math.max(1,Number(previous?.reps ?? item.repMin)), ...(previous ? {previousWeight:Number(previous.weight),previousReps:Number(previous.reps)} : {}) });
+  item.setCount = item.sets.length;
+  return next;
+}
+export function trainingSetChange(session, itemId, setId, weight, reps, savedSets, undo=false, restTimerEnabled=true, drafts={}) {
   const item=session.items.find(e=>e.id===itemId), planned=item?.sets?.find(s=>s.id===setId);
   if(session.status!=='active'||!planned)throw new Error('Deze training is niet meer actief.');
   if(!number(weight,0,2000)||!int(reps,1,1000))throw new Error('Vul 0 tot 2000 kg en 1 tot 1000 herhalingen in.');
@@ -72,6 +92,14 @@ export function trainingSetChange(session, itemId, setId, weight, reps, savedSet
   if(undo?!existing:existing)return [];
   if(existing&&existing.sessionId!==session.id)throw new Error('Deze set hoort bij een andere training.');
   const now=stamp(), next=structuredClone(session);
+  if (!undo) {
+    const nextItem = next.items.find(entry => entry.id === itemId);
+    const index = nextItem.sets.findIndex(set => set.id === setId);
+    Object.assign(nextItem.sets[index], {weight,reps});
+    const completed = new Set(savedSets.map(set => set.id));
+    const following = nextItem.sets.slice(index + 1).find(set => !completed.has(set.id));
+    if (following && !Object.hasOwn(drafts[following.id] || {}, 'weight')) following.weight = weight;
+  }
   if(undo || !restTimerEnabled || item.restSeconds === 0)delete next.restUntil;else next.restUntil=new Date(Date.now()+item.restSeconds*1000).toISOString();
   return [{kind:'sets',id:setId,...(undo?{deleted:true}:{record:{id:setId,machineId:item.machineId,sessionId:session.id,trainingItemId:itemId,weight,reps,loggedAt:now,createdAt:now}})},
     {kind:'sessions',id:session.id,record:next}];

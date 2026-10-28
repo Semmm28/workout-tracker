@@ -1,6 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 mkdir -p build
+compact_tests=(-only-testing:PhoneUITests)
+layout_tests=(
+  -only-testing:PhoneUITests/PhoneUITests/testTrainingPlanSaveResumeAndFinish
+  -only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer
+)
+if [ "${1:-all}" = "inputs" ]; then
+  compact_tests=(-only-testing:PhoneUITests/PhoneUITests/testLargeTextLoggingAndNavigation)
+  layout_tests=(-only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer)
+fi
 report() {
   xcrun xcresulttool export attachments --path build/PhoneUITests.xcresult --output-path build/ui-evidence || true
   xcrun xcresulttool get test-results summary --path build/PhoneUITests.xcresult || true
@@ -24,10 +33,11 @@ PY
 xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -destination "platform=iOS Simulator,id=$device_id" \
   -derivedDataPath build/DerivedData -resultBundlePath build/PhoneUITests.xcresult \
+  "${compact_tests[@]}" \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
   test 2>&1 | tee build/xcode-ui-tests.log
 
-# Also cover the safe area and navigation bar on the reported iPhone form factor.
+# Run the training flow on the reported iPhone form factor.
 layout_device_id=$(python3 - <<'PY'
 import json, subprocess
 d = json.load(open("build/simulators.json"))
@@ -39,8 +49,7 @@ PY
 xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -destination "platform=iOS Simulator,id=$layout_device_id" \
   -derivedDataPath build/DerivedData -resultBundlePath build/PhoneLayoutUITests.xcresult \
-  -only-testing:PhoneUITests/PhoneUITests/testTrainingPlanSaveResumeAndFinish \
-  -only-testing:PhoneUITests/PhoneUITests/testTrainingPreferencesPersistAndControlNewSetsAndTimer \
+  "${layout_tests[@]}" \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
   test 2>&1 | tee build/xcode-layout-tests.log
 xcrun xcresulttool export attachments --path build/PhoneLayoutUITests.xcresult --output-path build/ui-layout-evidence

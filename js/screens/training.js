@@ -2,7 +2,8 @@ import { icon } from '../constants.js';
 import { state } from '../state.js';
 import { safeText as s, escapeAttr as a, formatWeight, formatDate } from '../utils.js';
 import { renderHeader } from '../ui/components.js';
-import { trainingTarget } from '../training-model.js';
+import { trainingTarget, trainingMachineGroups } from '../training-model.js';
+import { renderNumericField } from '../ui/forms.js';
 
 const ui = () => state.trainingUI;
 const btn=(action,label,id='',cls='secondary-btn')=>`<button type="button" class="${cls}" data-action="training-${action}" data-id="${a(id)}">${s(label)}</button>`;
@@ -12,7 +13,7 @@ export function previousSet(machineId) {
   return `<p class="meta-text">${previous?`Vorige set: ${s(formatWeight(previous.weight))} kg × ${s(previous.reps)}`:'Nog geen set opgeslagen'}</p>`;
 }
 function itemCard(item) {
-  return `<article class="training-card">${heading(item)}<p class="meta-text">${item.setCount} × ${s(trainingTarget(item))} herhalingen${state.preferences.restTimerEnabled&&item.restSeconds>0?` · ${item.restSeconds} sec. rust`: ''}</p>${previousSet(item.machineId)}${state.machines.some(m=>m.id===item.machineId)?'':'<p>Apparaat verwijderd. Kies een vervanger.</p>'}</article>`;
+  return `<button type="button" class="training-card training-item-button" data-action="training-item-edit" data-id="${a(item.id)}" aria-label="${a(item.machineName)} wijzigen">${heading(item)}<p class="meta-text">${item.setCount} × ${s(trainingTarget(item))} herhalingen${state.preferences.restTimerEnabled&&item.restSeconds>0?` · ${item.restSeconds} sec. rust`: ''}</p>${previousSet(item.machineId)}<span class="training-edit-hint">Wijzig oefening ${icon.chevron}</span>${state.machines.some(m=>m.id===item.machineId)?'':'<p>Apparaat verwijderd. Kies een vervanger.</p>'}</button>`;
 }
 function plans() {
   const active=state.sessions.filter(x=>x.status==='active');
@@ -30,18 +31,26 @@ function editor() {
   const p=ui().draft;
   if(!p)return '<p>Open een schema om het te bewerken.</p>';
   return `<form id="training-plan-form"><label class="field-group">Naam<input name="name" maxlength="120" required value="${a(p.name)}" placeholder="Bijvoorbeeld Bovenlichaam A"></label>
-    ${p.items.map((item,index)=>`<article class="training-card" data-plan-item="${a(item.id)}">${heading(item)}${previousSet(item.machineId)}<div class="training-fields">
-      <label>Sets<input name="setCount" type="number" min="1" max="50" required value="${item.setCount}"></label>
-      <label>Herh. vanaf<input name="repMin" type="number" min="1" max="1000" required value="${item.repMin}"></label>
-      <label>Herh. tot<input name="repMax" type="number" min="1" max="1000" required value="${item.repMax}"></label>
-      <label ${state.preferences.restTimerEnabled?'':'hidden'}>Rust (sec.)<input name="restSeconds" type="number" min="0" max="3600" required value="${item.restSeconds}"></label></div>
-      <div class="training-actions training-reorder">${index?btn('up','Omhoog',item.id):''}${index<p.items.length-1?btn('down','Omlaag',item.id):''}${btn('remove','Verwijder',item.id)}</div></article>`).join('')}
+    ${p.items.map((item,index)=>`<div>${itemCard(item)}<div class="training-actions training-reorder">${index?btn('up','Omhoog',item.id):''}${index<p.items.length-1?btn('down','Omlaag',item.id):''}${btn('remove','Verwijder',item.id)}</div></div>`).join('')}
     <div class="training-actions">${btn('add','Apparaat toevoegen')}<button class="primary-btn" type="submit">Schema bewaren</button></div></form>`;
 }
+function itemEditor() {
+  const item=ui().itemDraft;
+  if(!item)return '<p>Open een oefening vanuit je schema.</p>';
+  const number=(name,label,min,max,step=1)=>renderNumericField({id:`plan-item-${name}`,name,label,min,max,step,value:item[name],integer:true,scroll:true});
+  return `<form id="training-item-form"><article class="training-card">${heading(item)}${previousSet(item.machineId)}${btn('item-replace','Ander apparaat',item.id)}<div class="training-fields">
+    ${number('setCount','Aantal sets',1,50)}${number('repMin','Herhalingen vanaf',1,1000)}${number('repMax','Herhalingen tot',1,1000)}
+    ${state.preferences.restTimerEnabled?number('restSeconds','Rust (seconden)',0,3600,15):''}
+    </div></article><p class="meta-text">Je wijzigt alleen deze oefening in het schema. Eerdere en lopende trainingen blijven hetzelfde.</p>
+    <div class="training-actions">${btn('item-cancel','Annuleren')}<button type="submit" class="primary-btn">Oefening bewaren</button></div></form>`;
+}
 function picker() {
-  const brand=state.brands.find(b=>b.id===ui().brand);
-  if(!brand)return `<p class="meta-text">Kies een merk.</p>${state.brands.map(b=>`<article class="training-card">${btn('brand',b.name,b.id)}</article>`).join('')}${!state.machines.length?'<p>Voeg eerst een merk en apparaat toe via Workouts → Apparaten.</p>':''}`;
-  return `${btn('brands','Alle merken')}<h2>${s(brand.name)}</h2>${state.machines.filter(m=>m.brandId===brand.id).map(m=>`<article class="training-card"><h2>${s(m.name)}</h2><p class="training-brand">${s(brand.name)}</p>${previousSet(m.id)}${btn('choose','Kies apparaat',m.id)}</article>`).join('')}`;
+  const query=ui().pickerSearch||'', groups=trainingMachineGroups(state.brands,state.machines,query);
+  return `<label class="field-group">Zoek een merk of apparaat<input id="training-machine-search" type="search" value="${a(query)}" placeholder="Bijvoorbeeld Life Fitness of Chest Press"></label>
+    ${groups.map(({brand,machines})=>`<details class="training-brand-group" data-training-brand="${a(brand.id)}" ${query.trim()||(ui().pickerExpanded||[]).includes(brand.id)?'open':''}>
+      <summary><span>${s(brand.name)}</span><span class="meta-text">${machines.length} ${machines.length===1?'apparaat':'apparaten'}</span>${icon.chevron}</summary>
+      <div>${machines.map(machine=>`<button type="button" class="training-machine-choice" data-action="training-choose" data-id="${a(machine.id)}"><strong>${s(machine.name)}</strong>${previousSet(machine.id)}</button>`).join('')}</div></details>`).join('')}
+    ${groups.length?'':`<p>${state.machines.length?'Geen apparaten gevonden. Probeer een andere zoekterm.':'Voeg eerst een merk en apparaat toe via Workouts → Apparaten.'}</p>`}`;
 }
 function session() {
   const x=state.sessions.find(x=>x.id===state.route.id);
@@ -56,17 +65,23 @@ function session() {
   return `<p class="meta-text">${saved.length} / ${total} sets voltooid</p><progress aria-label="Afgeronde sets" value="${saved.length}" max="${total}"></progress>
     <label class="field-group">Apparaat<select id="training-item-picker">${x.items.map((e,i)=>`<option value="${i}" ${i===index?'selected':''}>${s(e.brandName)} · ${s(e.machineName)}</option>`).join('')}</select></label>
     <article class="training-card">${heading(item)}<p class="meta-text">Doel: ${s(trainingTarget(item))} herhalingen per set</p>
-    ${item.sets.map((set,i)=>{const done=existing.get(set.id);return `<form class="training-set-form" data-set="${a(set.id)}" data-item="${a(item.id)}">
+    ${item.sets.map((set,i)=>{const done=existing.get(set.id),draft=ui().setDrafts?.[set.id]||{};
+      const latest=state.lastSets.get(item.machineId);
+      const weight=draft.weight??latest?.weight??(set.previousWeight==null&&set.weight===0?'':set.weight);
+      return `<form class="training-set-form" aria-label="Set ${i+1}" data-set="${a(set.id)}" data-item="${a(item.id)}">
       <div class="training-set-heading"><strong>Set ${i+1}</strong><span class="meta-text">${set.previousWeight!=null?`Vorige: ${s(formatWeight(set.previousWeight))} kg × ${set.previousReps}`:'Nog geen vorige set'}</span></div>
-      ${done?`<div class="training-set-heading"><span>${s(formatWeight(done.weight))} kg × ${s(done.reps)}</span>${btn('undo','Ongedaan maken',set.id)}</div>`:`<div class="training-set-inputs"><label>kg<input name="weight" aria-label="Gewicht set ${i+1}" type="number" step="any" min="0" max="2000" required value="${set.weight}"></label><label>Herh.<input name="reps" aria-label="Herhalingen set ${i+1}" type="number" min="1" max="1000" required value="${set.reps}"></label><button type="submit" class="primary-btn" ${available?'':'disabled'} aria-label="Set ${i+1} opslaan">✓</button></div>`}</form>`;}).join('')}
+      ${done?`<div class="training-set-heading"><span>${s(formatWeight(done.weight))} kg × ${s(done.reps)}</span>${btn('undo','Ongedaan maken',set.id)}</div>`:`<div class="training-set-inputs">
+        ${renderNumericField({id:`${set.id}-weight`,name:'weight',label:'Gewicht (kg)',value:weight,min:0,max:2000,step:2.5})}
+        ${renderNumericField({id:`${set.id}-reps`,name:'reps',label:'Herhalingen',value:draft.reps??set.reps,min:1,max:1000,integer:true,scroll:true})}
+        <button type="submit" class="primary-btn" ${available?'':'disabled'} aria-label="Set ${i+1} opslaan">Set ${i+1} opslaan</button></div>`}</form>`;}).join('')}
     ${available?'':'<p>Apparaat verwijderd. Kies een ander apparaat.</p>'}</article>
     ${state.preferences.restTimerEnabled&&x.restUntil?`<div class="training-card"><p role="timer" data-rest-until="${a(x.restUntil)}">Rust</p>${btn('skip-rest','Rust overslaan')}</div>`:''}
     <div class="training-actions">${btn('swap','Ander apparaat',item.id)}${item.sets.length<50?btn('extra','Set toevoegen',item.id):''}${index+1<x.items.length?btn('next','Volgend apparaat','','primary-btn'):''}${btn('finish','Training afronden',x.id)}</div><p class="meta-text">Elke afgevinkte set wordt direct bewaard. Je kunt later verdergaan.</p>`;
 }
 export function renderTrainingScreen() {
   const route=state.route.screen;
-  const title=route==='plans'?'Workouts':route==='plan'?state.plans.find(p=>p.id===state.route.id)?.name||'Schema':route==='training'?state.sessions.find(p=>p.id===state.route.id)?.name||'Training':route==='planEdit'?'Schema bewerken':'Kies een apparaat';
-  const body=({plans,plan,planEdit:editor,trainingPicker:picker,training:session}[route]||plans)();
+  const title=route==='plans'?'Workouts':route==='plan'?state.plans.find(p=>p.id===state.route.id)?.name||'Schema':route==='training'?state.sessions.find(p=>p.id===state.route.id)?.name||'Training':route==='planEdit'?'Schema bewerken':route==='planItemEdit'?'Oefening wijzigen':'Kies een apparaat';
+  const body=({plans,plan,planEdit:editor,planItemEdit:itemEditor,trainingPicker:picker,training:session}[route]||plans)();
   return `<section class="screen-shell training-screen"><div class="screen-top">${renderHeader({title,showBack:route!=='plans',onBack:'training-back',extraButtons:route==='plans'?`<button class="small-btn" data-action="training-manage" aria-pressed="${Boolean(ui().managing)}" ${state.plans.length?'':'disabled'}>${ui().managing?'Gereed':'Wijzig'}</button><button class="round-btn" data-action="training-new" aria-label="Nieuw schema">${icon.plus}</button>`:''})}</div><div class="screen-scroll training-content">${body}${ui().error?`<p class="training-error" role="alert">${s(ui().error)}</p>`:''}</div></section>`;
 }
 export function renderTrainingHistory() {

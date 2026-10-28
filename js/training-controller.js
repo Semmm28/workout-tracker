@@ -1,9 +1,9 @@
-import { persistTrainingPreferences } from './utils.js';
+import { debounce, persistTrainingPreferences } from './utils.js';
 import { state } from './state.js';
 import { loadState } from './data.js';
 import { getAll, writeChanges } from './database.js';
-import { wireAsyncForm } from './ui/forms.js';
-import { newPlan, planItem, validTraining, startTraining, replaceTrainingItem, trainingSetChange } from './training-model.js';
+import { parseNumericInput, wireAsyncForm } from './ui/forms.js';
+import { newPlan, planItem, validTraining, startTraining, replaceTrainingItem, trainingSetChange, addTrainingSet, updatePlanItem } from './training-model.js';
 
 export function createTrainingController({render,navigate,showToast}) {
   const ui=state.trainingUI;
@@ -17,11 +17,12 @@ export function createTrainingController({render,navigate,showToast}) {
   const capture=()=>{
     const form=document.getElementById('training-plan-form');if(!form)return;
     ui.draft.name=form.elements.name.value.trim();
-    form.querySelectorAll('[data-plan-item]').forEach(el=>{
-      const item=ui.draft.items.find(i=>i.id===el.dataset.planItem);
-      for(const field of ['setCount','repMin','repMax','restSeconds'])item[field]=Number(el.querySelector(`[name="${field}"]`).value);
-    });
   };
+  const captureItem=()=>{
+    const form=document.getElementById('training-item-form');if(!form||!ui.itemDraft)return;
+    for(const field of ['setCount','repMin','repMax','restSeconds'])if(form.elements[field])ui.itemDraft[field]=parseNumericInput(form.elements[field].value);
+  };
+  const closeItem=()=>{const destination=ui.itemReturn;ui.itemDraft=null;ui.itemReturn=null;go(destination?.screen||'plans',destination?.id);};
   const freshest=async()=>{
     const stored=(await getAll('sessions')).find(x=>x.id===state.route.id);
     if(!stored||stored.status!=='active')throw new Error('De training is al afgerond. Open haar opnieuw.');
@@ -31,7 +32,8 @@ export function createTrainingController({render,navigate,showToast}) {
     const session=await freshest(), sets=await getAll('sets');
     const machineId=session.items.find(i=>i.id===itemId)?.machineId;
     if(!(await getAll('machines')).some(m=>m.id===machineId))throw new Error('Het apparaat is verwijderd. Kies een vervanger.');
-    await writeChanges(trainingSetChange(session,itemId,setId,weight,reps,sets,undo,state.preferences.restTimerEnabled));await loadState();render();
+    await writeChanges(trainingSetChange(session,itemId,setId,weight,reps,sets,undo,state.preferences.restTimerEnabled,ui.setDrafts));
+    delete ui.setDrafts[setId];await loadState();render();
   }
   async function handle(action,target) {
     if(busy)return;
@@ -51,20 +53,28 @@ export function createTrainingController({render,navigate,showToast}) {
       if(action==='training-new'||action==='training-edit'){
         ui.editing=action==='training-edit';ui.draft=ui.editing?structuredClone(state.plans.find(p=>p.id===id)):newPlan();go('planEdit');
       }
+      if(action==='training-item-edit'){
+        capture();const plan=state.route.screen==='planEdit'?ui.draft:state.plans.find(p=>p.id===state.route.id);
+        const item=plan?.items.find(item=>item.id===id);if(!item)throw new Error('Deze oefening is niet meer beschikbaar.');
+        ui.itemDraft=structuredClone(item);ui.itemReturn={screen:state.route.screen,id:plan.id};go('planItemEdit');
+      }
+      if(action==='training-item-cancel')closeItem();
       if(action==='training-back'){
-        if(state.route.screen==='trainingPicker')go(ui.picker==='add'?'planEdit':'training',ui.previous);
+        if(state.route.screen==='planItemEdit')closeItem();
+        else if(state.route.screen==='trainingPicker')go(ui.picker==='add'?'planEdit':ui.picker==='plan-replace'?'planItemEdit':'training',ui.previous);
         else if(state.route.screen==='planEdit'&&ui.draft?.items.length){
           state.confirmSheet={title:'Schema sluiten?',message:'Niet bewaarde wijzigingen vervallen.',confirmLabel:'Sluiten',destructive:false,confirm:()=>{state.confirmSheet=null;go('plans');}};render();
         }else go('plans');
       }
-      if(['training-add','training-swap'].includes(action)){
-        capture();ui.picker=action==='training-add'?'add':id;ui.brand=null;ui.previous=state.route.id;go('trainingPicker');
+      if(['training-add','training-swap','training-item-replace'].includes(action)){
+        capture();captureItem();ui.picker=action==='training-add'?'add':action==='training-item-replace'?'plan-replace':id;ui.pickerSearch='';ui.pickerExpanded=[];ui.previous=state.route.id;go('trainingPicker');
       }
-      if(action==='training-brand'){ui.brand=id;render();}
-      if(action==='training-brands'){ui.brand=null;render();}
       if(action==='training-choose'){
         const machine=state.machines.find(m=>m.id===id);if(!machine)throw new Error('Dit apparaat is niet meer beschikbaar.');
-        if(ui.picker==='add'){if(ui.draft.items.length>=100)throw new Error('Maximaal 100 apparaten per schema.');ui.draft.items.push(planItem(machine,state.brands,state.preferences.defaultSetCount));go('planEdit');}
+        if(ui.picker==='add'){if(ui.draft.items.length>=100)throw new Error('Maximaal 100 apparaten per schema.');ui.draft.items.push(planItem(machine,state.brands,state.preferences.defaultSetCount,state.preferences.defaultRepMin,state.preferences.defaultRepMax));go('planEdit');}
+        else if(ui.picker==='plan-replace'){
+          Object.assign(ui.itemDraft,{machineId:machine.id,machineName:machine.name,brandName:state.brands.find(brand=>brand.id===machine.brandId)?.name||'Onbekend merk'});go('planItemEdit');
+        }
         else {
           const session=(await getAll('sessions')).find(x=>x.id===ui.previous);
           const next=replaceTrainingItem(session,ui.picker,machine,state.brands,await getAll('sets'));
@@ -85,8 +95,7 @@ export function createTrainingController({render,navigate,showToast}) {
       if(action==='training-resume'){ui.current=0;ui.finishing=false;go('training',id);}
       if(action==='training-next'){ui.current=Math.min(ui.current+1,current().items.length-1);render();}
       if(action==='training-extra'){
-        const next=await freshest(),item=next.items.find(i=>i.id===id);
-        if(item.sets.length<50){item.sets.push({...item.sets.at(-1),id:'training-set-'+crypto.randomUUID()});item.setCount=item.sets.length;await persist('sessions',next);render();}
+        const next=addTrainingSet(await freshest(),id,await getAll('sets'));await persist('sessions',next);render();
       }
       if(action==='training-undo'){
         const item=current().items.find(i=>i.sets.some(s=>s.id===id));const set=item.sets.find(s=>s.id===id);await changeSet(item.id,id,set.weight,set.reps,true);
@@ -105,15 +114,22 @@ export function createTrainingController({render,navigate,showToast}) {
   }
   function wire() {
     clearInterval(timer);
-    for (const id of ['training-default-sets', 'training-rest-enabled']) {
+    for (const id of ['training-default-sets', 'training-default-rep-min', 'training-default-rep-max', 'training-rest-enabled']) {
       document.getElementById(id)?.addEventListener('change', event => {
         const input = event.target;
-        const next = { defaultSetCount: state.preferences.defaultSetCount, restTimerEnabled: state.preferences.restTimerEnabled };
-        if (id === 'training-default-sets') next.defaultSetCount = Number(input.value);
-        else next.restTimerEnabled = input.checked;
-        try { persistTrainingPreferences(next); Object.assign(state.preferences, next); }
+        const next = { defaultSetCount: state.preferences.defaultSetCount, defaultRepMin: state.preferences.defaultRepMin, defaultRepMax: state.preferences.defaultRepMax, restTimerEnabled: state.preferences.restTimerEnabled };
+        const key=({'training-default-sets':'defaultSetCount','training-default-rep-min':'defaultRepMin','training-default-rep-max':'defaultRepMax'})[id];
+        if(key)next[key]=parseNumericInput(input.value);else next.restTimerEnabled=input.checked;
+        if(key==='defaultRepMin'&&next.defaultRepMin>next.defaultRepMax)next.defaultRepMax=next.defaultRepMin;
+        if(key==='defaultRepMax'&&next.defaultRepMax<next.defaultRepMin)next.defaultRepMin=next.defaultRepMax;
+        try {
+          persistTrainingPreferences(next);Object.assign(state.preferences,next);
+          for(const [field,property] of [['training-default-rep-min','defaultRepMin'],['training-default-rep-max','defaultRepMax']]){
+            const other=document.getElementById(field);if(other&&other!==input){other.value=next[property];other.dispatchEvent(new Event('input',{bubbles:true}));}
+          }
+        }
         catch (error) {
-          if (id === 'training-default-sets') input.value = state.preferences.defaultSetCount;
+          if (key) {input.value=state.preferences[key];input.dispatchEvent(new Event('input',{bubbles:true}));}
           else input.checked = state.preferences.restTimerEnabled;
           showToast(error.message || 'Instelling niet bewaard. Probeer opnieuw.');
         }
@@ -124,10 +140,39 @@ export function createTrainingController({render,navigate,showToast}) {
       capture();if(!validTraining(ui.draft,'plans')){ui.error='Geef het schema een naam, kies een apparaat en controleer je doelen.';render();return;}
       await persist('plans',ui.draft);go('plan',ui.draft.id);
     },showToast);
-    document.querySelectorAll('.training-set-form').forEach(form=>wireAsyncForm(form,async()=>{
-      if(busy)return;busy=true;
-      try{await changeSet(form.dataset.item,form.dataset.set,Number(form.elements.weight.value),Number(form.elements.reps.value));}finally{busy=false;}
-    },showToast));
+    const itemForm=document.getElementById('training-item-form');
+    if(itemForm)wireAsyncForm(itemForm,async()=>{
+      captureItem();
+      if(ui.itemReturn.screen==='planEdit'){
+        // A new plan can still have an empty name while its first item is edited.
+        const next=updatePlanItem({...ui.draft,name:ui.draft.name||'Schema'},ui.itemDraft);ui.draft.items=next.items;
+      }else{
+        const latest=(await getAll('plans')).find(plan=>plan.id===ui.itemReturn.id);
+        await persist('plans',updatePlanItem(latest,ui.itemDraft));
+      }
+      closeItem();
+    },showToast);
+    document.querySelectorAll('.training-set-form').forEach(form=>{
+      form.addEventListener('input',event=>{
+        if(!['weight','reps'].includes(event.target.name))return;
+        (ui.setDrafts[form.dataset.set]??={})[event.target.name]=event.target.value;
+      });
+      wireAsyncForm(form,async()=>{
+        if(busy)return;busy=true;
+        try{await changeSet(form.dataset.item,form.dataset.set,parseNumericInput(form.elements.weight.value),parseNumericInput(form.elements.reps.value));}finally{busy=false;}
+      },showToast);
+    });
+    const search=document.getElementById('training-machine-search');
+    search?.addEventListener('input',debounce(event=>{
+      if(!event.target.isConnected)return;
+      ui.pickerSearch=event.target.value;const start=event.target.selectionStart,end=event.target.selectionEnd;render();
+      const replacement=document.getElementById('training-machine-search');replacement?.focus({preventScroll:true});replacement?.setSelectionRange(start,end);
+    },10));
+    document.querySelectorAll('[data-training-brand]').forEach(details=>details.addEventListener('toggle',()=>{
+      if(ui.pickerSearch.trim())return;
+      ui.pickerExpanded=ui.pickerExpanded.filter(id=>id!==details.dataset.trainingBrand);
+      if(details.open)ui.pickerExpanded.push(details.dataset.trainingBrand);
+    }));
     document.getElementById('training-item-picker')?.addEventListener('change',event=>{ui.current=Number(event.target.value);render();});
     const updateTimer=()=>{const el=document.querySelector('[data-rest-until]');if(!el){clearInterval(timer);return;}const seconds=Math.max(0,Math.ceil((Date.parse(el.dataset.restUntil)-Date.now())/1000));el.textContent=seconds?`Rust: ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`:'Rust voltooid';if(!seconds)clearInterval(timer);};
     if(document.querySelector('[data-rest-until]')){updateTimer();timer=setInterval(updateTimer,1000);}

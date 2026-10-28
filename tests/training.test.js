@@ -16,7 +16,7 @@ test('a workout snapshots its plan and takes previous values only from the selec
   assert.equal(session.items[0].sets[0].previousReps,10);
   assert.equal(history.length,2);assert.equal(plan.items[0].sets,undefined);
   plan.name='Edited';plan.items[0].repMin=2;
-  assert.equal(session.name,'Bovenlichaam A');assert.equal(session.items[0].repMin,8);
+  assert.equal(session.name,'Bovenlichaam A');assert.equal(session.items[0].repMin,5);
   assert.ok(validTraining(session,'sessions'));
   assert.throws(()=>startTraining(plan,[],brands,history));
 });
@@ -51,7 +51,7 @@ test('previous workout values use the existing history tie-breaker',()=>{
   const same=history[0];
   const entries=[{...same,id:'a',weight:50},{...same,id:'z',weight:70},{...same,id:'m',weight:80,createdAt:undefined}];
   const session=startTraining(fixture(),machines,brands,entries);
-  assert.deepEqual(session.items[0].sets.map(s=>s.weight),[50,70,80]);
+  assert.deepEqual(session.items[0].sets.map(s=>s.weight),[80,80,80]);
 });
 
 
@@ -78,16 +78,16 @@ test('training preferences persist and reject invalid values or failed writes',a
   const previous=globalThis.localStorage;let stored=null;
   globalThis.localStorage={getItem:()=>stored,setItem:(_key,value)=>{stored=value;}};
   try {
-    assert.deepEqual(readTrainingPreferences(),{defaultSetCount:2,restTimerEnabled:true});
-    persistTrainingPreferences({defaultSetCount:4,restTimerEnabled:false});
-    assert.deepEqual(readTrainingPreferences(),{defaultSetCount:4,restTimerEnabled:false});
-    assert.throws(()=>persistTrainingPreferences({defaultSetCount:0,restTimerEnabled:true}));
+    assert.deepEqual(readTrainingPreferences(),{defaultSetCount:2,defaultRepMin:5,defaultRepMax:8,restTimerEnabled:true});
+    persistTrainingPreferences({defaultSetCount:4,defaultRepMin:6,defaultRepMax:10,restTimerEnabled:false});
+    assert.deepEqual(readTrainingPreferences(),{defaultSetCount:4,defaultRepMin:6,defaultRepMax:10,restTimerEnabled:false});
+    assert.throws(()=>persistTrainingPreferences({defaultSetCount:0,defaultRepMin:5,defaultRepMax:8,restTimerEnabled:true}));
     assert.equal(readTrainingPreferences().defaultSetCount,4);
     stored='{"defaultSetCount":100,"restTimerEnabled":"false"}';
-    assert.deepEqual(readTrainingPreferences(),{defaultSetCount:2,restTimerEnabled:true});
+    assert.deepEqual(readTrainingPreferences(),{defaultSetCount:2,defaultRepMin:5,defaultRepMax:8,restTimerEnabled:true});
     stored='{broken';assert.equal(readTrainingPreferences().defaultSetCount,2);
     globalThis.localStorage.setItem=()=>{throw Error('Storage full');};
-    assert.throws(()=>persistTrainingPreferences({defaultSetCount:2,restTimerEnabled:true}));
+    assert.throws(()=>persistTrainingPreferences({defaultSetCount:2,defaultRepMin:5,defaultRepMax:8,restTimerEnabled:true}));
   }finally{if(previous===undefined)delete globalThis.localStorage;else globalThis.localStorage=previous;}
 });
 test('plans expose top edit and add controls and hide timers when disabled',async()=>{

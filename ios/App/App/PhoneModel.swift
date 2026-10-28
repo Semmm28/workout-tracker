@@ -314,7 +314,9 @@ actor PhoneRepository {
     func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool, restTimerEnabled: Bool = true) throws {
         let data = presentation()
         guard let original = data.sessionRecords[sessionID], var session = data.sessions.first(where: { $0.id == sessionID }), session.status == "active",
-              let item = session.items.first(where: { $0.id == itemID }), let planned = item.sets?.first(where: { $0.id == setID }) else { throw PhoneDataError.trainingFinished }
+              let itemIndex = session.items.firstIndex(where: { $0.id == itemID }),
+              let setIndex = session.items[itemIndex].sets?.firstIndex(where: { $0.id == setID }) else { throw PhoneDataError.trainingFinished }
+        let item = session.items[itemIndex], planned = item.sets![setIndex]
         guard data.machinesByID[item.machineId] != nil else { throw PhoneDataError.missingTrainingMachine }
         guard weight.isFinite, (0...2000).contains(weight), (1...1000).contains(reps) else { throw PhoneDataError.invalidBackup }
         var next = snapshot
@@ -329,6 +331,9 @@ actor PhoneRepository {
                                        "trainingItemId": .string(itemID), "weight": .number(weight), "reps": .number(Double(reps)),
                                        "createdAt": .string(stamp), "loggedAt": .string(stamp)])
             try next.put(kind: "sets", record: saved)
+            // Persist the actual values with the set so undo and resume cannot restore an old suggestion.
+            session.items[itemIndex].sets?[setIndex].weight = weight
+            session.items[itemIndex].sets?[setIndex].reps = reps
             session.restUntil = restTimerEnabled && item.restSeconds > 0 ? ISO8601DateFormatter().string(from: Date().addingTimeInterval(Double(item.restSeconds))) : nil
         }
         try next.put(kind: "sessions", record: session.record(preserving: original))

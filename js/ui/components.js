@@ -1,4 +1,5 @@
 import { ACTION_WIDTH, icon } from '../constants.js';
+import { renderNumericField } from './forms.js';
 import { state } from '../state.js';
 import {
   escapeAttr,
@@ -77,7 +78,7 @@ function renderTab({ action, label, iconName, active }) {
 }
 
 export function renderBottomNavigation() {
-  const workoutScreens = new Set(['brands', 'machines', 'machineDetail', 'plans', 'plan', 'training', 'planEdit', 'trainingPicker']);
+  const workoutScreens = new Set(['brands', 'machines', 'machineDetail', 'plans', 'plan', 'training', 'planEdit', 'planItemEdit', 'trainingPicker']);
   const screen = state.route.screen;
 
   return `
@@ -259,14 +260,8 @@ export function renderModal() {
         <form class="modal-body" id="set-form">
           <div class="form-grid">
             <div class="two-col">
-              <div class="field-group">
-                <label for="set-weight">Weight <span class="required-dot">•</span></label>
-                <input id="set-weight" name="weight" type="number" inputmode="decimal" step="0.5" min="0" required placeholder="0" value="${escapeAttr(entry.weight ?? '')}" />
-              </div>
-              <div class="field-group">
-                <label for="set-reps">Repetitions <span class="required-dot">•</span></label>
-                <input id="set-reps" name="reps" type="number" inputmode="numeric" step="1" min="0" required placeholder="0" value="${escapeAttr(entry.reps ?? '')}" />
-              </div>
+              ${renderNumericField({id:'set-weight',name:'weight',label:'Gewicht (kg)',value:entry.weight??'',min:0,max:Infinity,step:2.5})}
+              ${renderNumericField({id:'set-reps',name:'reps',label:'Herhalingen',value:entry.reps??'',min:0,max:Infinity,integer:true,scroll:true})}
             </div>
             <details class="set-extra">
               <summary>Extra <span class="chevron" aria-hidden="true">${icon.chevron}</span></summary>
@@ -281,20 +276,7 @@ export function renderModal() {
                     <input id="set-time" name="time" type="time" value="${escapeAttr(toInputTime(entry.loggedAt))}" />
                   </div>
                 </div>
-                <div class="field-group">
-                  <label for="set-rpe">RPE</label>
-                  <input
-                    id="set-rpe"
-                    name="rpe"
-                    type="number"
-                    inputmode="decimal"
-                    step="0.5"
-                    min="1"
-                    max="10"
-                    placeholder="Optional (1–10)"
-                    value="${escapeAttr(entry.rpe ?? '')}"
-                  />
-                </div>
+                ${renderNumericField({id:'set-rpe',name:'rpe',label:'RPE',value:entry.rpe??'',min:1,max:10,step:0.5,quantum:0.5,optional:true,scroll:true})}
                 <div class="field-group">
                   <label for="set-notes">Notes</label>
                   <textarea id="set-notes" name="notes" rows="1" placeholder="Optional notes">${safeText(entry.notes || '')}</textarea>

@@ -92,9 +92,9 @@ struct TrainingPlansScreen: View {
 
 struct TrainingPlanScreen: View {
     @EnvironmentObject private var store: PhoneStore
-    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
     let planID: String
     @State private var editor: TrainingDocument?
+    @State private var itemEditor: TrainingItem?
     @State private var sessionID: String?
     @State private var busy = false
     private var plan: TrainingDocument? { store.data.plans.first { $0.id == planID } }
@@ -103,11 +103,8 @@ struct TrainingPlanScreen: View {
             if let plan {
                 Section {
                     ForEach(plan.items) { item in
-                        VStack(alignment: .leading, spacing: 5) {
-                            TrainingItemHeading(item: item)
-                            Text("\(item.setCount) × \(item.target) herhalingen" + (restTimerEnabled && item.restSeconds > 0 ? " · \(item.restSeconds) sec. rust" : "")).font(.subheadline).foregroundStyle(.secondary)
-                            PreviousSetLabel(set: store.data.setsByMachine[item.machineId]?.last)
-                        }.padding(.vertical, 6)
+                        Button { itemEditor = item } label: { TrainingPlanItemLabel(item: item) }
+                            .buttonStyle(.plain).accessibilityIdentifier("edit-plan-item-\(item.id)")
                     }
                 }
                 Section {
@@ -127,6 +124,9 @@ struct TrainingPlanScreen: View {
         }.navigationTitle(plan?.name ?? "Schema").navigationBarTitleDisplayMode(.inline)
         .toolbar { Button("Wijzig") { editor = plan }.disabled(plan == nil) }
         .sheet(item: $editor) { TrainingPlanEditor(plan: $0) }
+        .sheet(item: $itemEditor) { item in
+            TrainingItemEditor(item: item) { changed in try await store.updatePlanItem(planID: planID, item: changed) }
+        }
         .navigationDestination(isPresented: Binding(get: { sessionID != nil }, set: { if !$0 { sessionID = nil } })) {
             if let sessionID { TrainingSessionScreen(sessionID: sessionID) }
         }
@@ -146,13 +146,90 @@ struct TrainingItemHeading: View {
     }
 }
 
+private struct TrainingPlanItemLabel: View {
+    @EnvironmentObject private var store: PhoneStore
+    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
+    let item: TrainingItem
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 5) {
+                TrainingItemHeading(item: item)
+                Text("\(item.setCount) × \(item.target) herhalingen" + (restTimerEnabled && item.restSeconds > 0 ? " · \(item.restSeconds) sec. rust" : ""))
+                    .font(.subheadline).foregroundStyle(.secondary)
+                PreviousSetLabel(set: store.data.setsByMachine[item.machineId]?.last)
+            }
+            Spacer(minLength: 12)
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary).accessibilityHidden(true)
+        }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle()).padding(.vertical, 6)
+    }
+}
+
+struct TrainingItemEditor: View {
+    @EnvironmentObject private var store: PhoneStore
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
+    @State private var draft: TrainingItem
+    @State private var picker = false
+    @State private var busy = false
+    @State private var error: String?
+    let saveItem: (TrainingItem) async throws -> Void
+
+    init(item: TrainingItem, saveItem: @escaping (TrainingItem) async throws -> Void) {
+        // Keep changes local until Bewaar, including an optional replacement machine.
+        _draft = State(initialValue: item); self.saveItem = saveItem
+    }
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TrainingItemHeading(item: draft)
+                    PreviousSetLabel(set: store.data.setsByMachine[draft.machineId]?.last)
+                    Button("Apparaat wijzigen") { picker = true }.accessibilityIdentifier("plan-item-replace")
+                }
+                Section("Doelen") {
+                    WorkoutIntegerField(title: "Sets", value: $draft.setCount, kind: .setCount, identifier: "plan-item-sets")
+                    WorkoutIntegerField(title: "Herhalingen vanaf", value: $draft.repMin, kind: .repTarget, identifier: "plan-item-rep-min")
+                    WorkoutIntegerField(title: "Herhalingen tot", value: $draft.repMax, kind: .repTarget, identifier: "plan-item-rep-max")
+                    if restTimerEnabled {
+                        WorkoutIntegerField(title: "Rust", value: $draft.restSeconds, kind: .rest, identifier: "plan-item-rest")
+                    }
+                }
+                if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("plan-item-error") }
+            }.navigationTitle("Oefening wijzigen").navigationBarTitleDisplayMode(.inline)
+            .disabled(busy)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Annuleer") { dismiss() }.disabled(busy) }
+                ToolbarItem(placement: .confirmationAction) { Button("Bewaar") { save() }.disabled(busy).accessibilityIdentifier("save-plan-item") }
+            }
+            .sheet(isPresented: $picker) {
+                TrainingMachinePicker { machine in
+                    draft.machineId = machine.id; draft.machineName = machine.name; draft.brandName = store.brandName(machine)
+                }
+            }
+            .scrollContentBackground(.hidden).background(WorkoutStyle.background)
+        }.interactiveDismissDisabled(busy)
+    }
+    private func save() {
+        guard (1...1000).contains(draft.repMin), (draft.repMin...1000).contains(draft.repMax) else {
+            error = "Het maximum aantal herhalingen moet minstens gelijk zijn aan het minimum."; return
+        }
+        busy = true; error = nil
+        Task {
+            do { try await saveItem(draft); dismiss() } catch { self.error = error.localizedDescription }
+            busy = false
+        }
+    }
+}
+
 struct TrainingPlanEditor: View {
     @EnvironmentObject private var store: PhoneStore
     @AppStorage("trainingDefaultSetCount") private var defaultSetCount = 2
-    @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
+    @AppStorage("trainingDefaultRepMin") private var defaultRepMin = 5
+    @AppStorage("trainingDefaultRepMax") private var defaultRepMax = 8
     @Environment(\.dismiss) private var dismiss
     @State private var draft: TrainingDocument
     @State private var picker = false
+    @State private var itemEditor: TrainingItem?
     @State private var busy = false
     @State private var error: String?
     private let existing: Bool
@@ -165,20 +242,9 @@ struct TrainingPlanEditor: View {
             Form {
                 Section("Naam") { TextField("Bijvoorbeeld Bovenlichaam A", text: $draft.name).accessibilityIdentifier("plan-name") }
                 Section("Apparaten in volgorde") {
-                    ForEach($draft.items) { $item in
-                        VStack(alignment: .leading, spacing: 12) {
-                            TrainingItemHeading(item: item)
-                            PreviousSetLabel(set: store.data.setsByMachine[item.machineId]?.last)
-                            Stepper("Sets: \(item.setCount)", value: $item.setCount, in: 1...50)
-                            HStack {
-                                Text("Herhalingen")
-                                Spacer()
-                                TextField("Van", value: $item.repMin, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(minWidth: 40).accessibilityLabel("Minimum herhalingen")
-                                Text("–")
-                                TextField("Tot", value: $item.repMax, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(minWidth: 40).accessibilityLabel("Maximum herhalingen")
-                            }
-                            if restTimerEnabled { Stepper("Rust: \(item.restSeconds) seconden", value: $item.restSeconds, in: 0...3600, step: 15) }
-                        }.padding(.vertical, 6)
+                    ForEach(draft.items) { item in
+                        Button { itemEditor = item } label: { TrainingPlanItemLabel(item: item) }
+                            .buttonStyle(.plain).accessibilityIdentifier("edit-plan-item-\(item.id)")
                     }.onDelete { draft.items.remove(atOffsets: $0) }.onMove { draft.items.move(fromOffsets: $0, toOffset: $1) }
                     Button { picker = true } label: { Label("Apparaat toevoegen", systemImage: "plus.circle") }
                         .disabled(draft.items.count >= 100).accessibilityIdentifier("plan-add-machine")
@@ -190,7 +256,17 @@ struct TrainingPlanEditor: View {
                 ToolbarItem(placement: .primaryAction) { Button("Bewaar") { save() }.disabled(busy).accessibilityIdentifier("save-plan") }
                 ToolbarItem(placement: .bottomBar) { EditButton() }
             }
-            .sheet(isPresented: $picker) { TrainingMachinePicker { machine in draft.items.append(TrainingItem(machine: machine, brand: store.brandName(machine), setCount: defaultSetCount)) } }
+            .sheet(isPresented: $picker) {
+                TrainingMachinePicker { machine in
+                    draft.items.append(TrainingItem(machine: machine, brand: store.brandName(machine), setCount: defaultSetCount, repMin: defaultRepMin, repMax: defaultRepMax))
+                }
+            }
+            .sheet(item: $itemEditor) { item in
+                TrainingItemEditor(item: item) { changed in
+                    guard let index = draft.items.firstIndex(where: { $0.id == changed.id }) else { throw PhoneDataError.deleted }
+                    draft.items[index] = changed
+                }
+            }
             .scrollContentBackground(.hidden).background(WorkoutStyle.background)
         }.interactiveDismissDisabled(busy)
     }
@@ -208,27 +284,55 @@ struct TrainingMachinePicker: View {
     @EnvironmentObject private var store: PhoneStore
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
+    @State private var expanded = Set<String>()
     let choose: (WorkoutRecord) -> Void
+    private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private func machines(for brand: WorkoutRecord) -> [WorkoutRecord] {
+        (store.data.machinesByBrand[brand.id] ?? []).filter {
+            query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || brand.name.localizedCaseInsensitiveContains(query)
+        }
+    }
+    private var brands: [WorkoutRecord] { store.brands.filter { !machines(for: $0).isEmpty } }
     var body: some View {
         NavigationStack {
             List {
                 if store.machines.isEmpty { WorkoutEmptyState(title: "Nog geen apparaten", message: "Voeg eerst een merk en apparaat toe via Workouts → Apparaten.") }
-                ForEach(store.brands) { brand in
-                    Section(brand.name) {
-                        ForEach((store.data.machinesByBrand[brand.id] ?? []).filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || brand.name.localizedCaseInsensitiveContains(search) }) { machine in
-                            Button { choose(machine); dismiss() } label: {
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(machine.name).font(.headline)
-                                    Text(brand.name).font(.caption).foregroundStyle(.secondary)
-                                    PreviousSetLabel(set: store.data.setsByMachine[machine.id]?.last)
-                                }.padding(.vertical, 5)
-                            }.accessibilityIdentifier("choose-machine-\(machine.id)")
+                else if brands.isEmpty { WorkoutEmptyState(title: "Geen apparaten gevonden", message: "Zoek op apparaat of merk.") }
+                ForEach(brands) { brand in
+                    if query.isEmpty {
+                        DisclosureGroup(isExpanded: Binding(get: { expanded.contains(brand.id) }, set: { open in
+                            if open { expanded.insert(brand.id) } else { expanded.remove(brand.id) }
+                        })) {
+                            machineRows(for: brand)
+                        } label: {
+                            HStack {
+                                Text(brand.name).font(.headline)
+                                Spacer()
+                                let count = machines(for: brand).count
+                                Text("\(count) \(count == 1 ? "apparaat" : "apparaten")").font(.subheadline).foregroundStyle(.secondary)
+                            }.frame(minHeight: 44)
+                        }.accessibilityIdentifier("training-brand-\(brand.id)")
+                    } else {
+                        Section(brand.name) {
+                            machineRows(for: brand)
                         }
                     }
                 }
-            }.navigationTitle("Kies een apparaat").searchable(text: $search, prompt: "Apparaat of merk")
+            }.navigationTitle("Kies een apparaat").navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Apparaat of merk")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Annuleer") { dismiss() } } }
             .scrollContentBackground(.hidden).background(WorkoutStyle.background)
+        }
+    }
+    private func machineRows(for brand: WorkoutRecord) -> some View {
+        ForEach(machines(for: brand)) { machine in
+            Button { choose(machine); dismiss() } label: {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(machine.name).font(.headline)
+                    Text(brand.name).font(.caption).foregroundStyle(.secondary)
+                    PreviousSetLabel(set: store.data.setsByMachine[machine.id]?.last)
+                }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle()).padding(.vertical, 5)
+            }.accessibilityIdentifier("choose-machine-\(machine.id)")
         }
     }
 }
@@ -241,6 +345,7 @@ struct TrainingSessionScreen: View {
     @State private var picker = false
     @State private var finishing = false
     @State private var busy = false
+    @State private var drafts: [String: TrainingSetDraft] = [:]
     private var session: TrainingDocument? { store.data.sessions.first { $0.id == sessionID } }
     private var saved: [WorkoutRecord] { store.data.setsBySession[sessionID] ?? [] }
     private var focused: TrainingItem? { session?.items.first { $0.id == selected } ?? session?.items.first }
@@ -260,12 +365,14 @@ struct TrainingSessionScreen: View {
                         Text("Doel: \(item.target) herhalingen per set").font(.subheadline).foregroundStyle(.secondary)
                         ForEach(Array((item.sets ?? []).enumerated()), id: \.element.id) { index, set in
                             TrainingSetRow(sessionID: sessionID, itemID: item.id, set: set, number: index + 1,
-                                           saved: store.data.setsByID[set.id], available: store.data.machinesByID[item.machineId] != nil)
+                                           saved: store.data.setsByID[set.id], previous: store.data.setsByMachine[item.machineId]?.last,
+                                           available: store.data.machinesByID[item.machineId] != nil,
+                                           draft: Binding(get: { drafts[set.id] ?? TrainingSetDraft() }, set: { drafts[set.id] = $0 }))
                         }
                         Button {
                             var next = session
                             if let index = next.items.firstIndex(where: { $0.id == item.id }), (item.sets?.count ?? 0) < 50 {
-                                var added = item.sets?.last ?? TrainingSet(); added.id = "training-set-" + UUID().uuidString
+                                let added = item.newSet(history: store.data.setsByMachine[item.machineId] ?? [])
                                 next.items[index].sets?.append(added); next.items[index].setCount = next.items[index].sets?.count ?? 1
                                 save(next)
                             }
@@ -323,6 +430,11 @@ struct TrainingSessionScreen: View {
     }
 }
 
+private struct TrainingSetDraft {
+    var weight: String?
+    var reps: String?
+}
+
 private struct TrainingSetRow: View {
     @EnvironmentObject private var store: PhoneStore
     @AppStorage("trainingRestTimerEnabled") private var restTimerEnabled = true
@@ -331,21 +443,26 @@ private struct TrainingSetRow: View {
     let set: TrainingSet
     let number: Int
     let saved: WorkoutRecord?
+    let previous: WorkoutRecord?
     let available: Bool
-    @State private var weight: String
-    @State private var reps: String
+    @Binding var draft: TrainingSetDraft
     @State private var busy = false
-    init(sessionID: String, itemID: String, set: TrainingSet, number: Int, saved: WorkoutRecord?, available: Bool) {
-        self.sessionID = sessionID; self.itemID = itemID; self.set = set; self.number = number; self.saved = saved; self.available = available
-        // One-time draft values belong to the stable planned-set ID.
-        _weight = State(initialValue: set.weight.formatted(.number.grouping(.never).precision(.fractionLength(0...2)))); _reps = State(initialValue: String(set.reps))
+    private var weight: String {
+        // Session-owned drafts survive row recycling; only untouched fields follow the latest saved weight.
+        if let weight = draft.weight { return weight }
+        let initial = saved?.number("weight") ?? previous?.number("weight") ?? (set.previousWeight != nil || set.weight != 0 ? set.weight : nil)
+        return initial.map { String($0) } ?? ""
     }
+    private var reps: String { draft.reps ?? String(set.reps) }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Set \(number)").font(.subheadline.weight(.semibold))
                 Spacer()
-                if let old = set.previousWeight, let count = set.previousReps {
+                if saved == nil, let previous {
+                    Text("Vorige: \(WorkoutStyle.value(previous.number("weight"))) kg × \(WorkoutStyle.value(previous.number("reps")))")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if let old = set.previousWeight, let count = set.previousReps {
                     Text("Vorige: \(WorkoutStyle.value(old)) kg × \(count)").font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -357,17 +474,19 @@ private struct TrainingSetRow: View {
                         .accessibilityLabel("Set \(number) ongedaan maken").disabled(busy || !available)
                 }
             } else {
-                HStack(alignment: .bottom, spacing: 12) {
-                    VStack(alignment: .leading) { Text("kg").font(.caption); TextField("Gewicht", text: $weight).keyboardType(.decimalPad).accessibilityIdentifier("training-weight-\(number)") }
-                    VStack(alignment: .leading) { Text("Herh.").font(.caption); TextField("Herhalingen", text: $reps).keyboardType(.numberPad).accessibilityIdentifier("training-reps-\(number)") }
-                    Button { submit(undo: false) } label: { Image(systemName: "checkmark.circle").frame(minWidth: 44, minHeight: 44) }
-                        .accessibilityLabel("Set \(number) opslaan").accessibilityIdentifier("training-save-\(number)").disabled(busy || !available)
-                }.textFieldStyle(.roundedBorder)
+                WorkoutNumberField(title: "Gewicht", text: Binding(get: { weight }, set: { draft.weight = $0 }), kind: .weight, identifier: "training-weight-\(number)")
+                    .disabled(busy || !available)
+                WorkoutNumberField(title: "Herhalingen", text: Binding(get: { reps }, set: { draft.reps = $0 }), kind: .repTarget, identifier: "training-reps-\(number)")
+                    .disabled(busy || !available)
+                Button { submit(undo: false) } label: {
+                    Label("Set \(number) opslaan", systemImage: "checkmark.circle").frame(maxWidth: .infinity, minHeight: 44)
+                }.accessibilityIdentifier("training-save-\(number)").disabled(busy || !available)
             }
         }.padding(.vertical, 4)
     }
     private func submit(undo: Bool) {
-        guard let value = Double(weight.replacingOccurrences(of: ",", with: ".")), let count = Int(reps), value.isFinite, (0...2000).contains(value), (1...1000).contains(count) else {
+        guard let value = WorkoutNumberKind.weight.number(weight), let repetitionValue = WorkoutNumberKind.repTarget.number(reps),
+              let count = Int(exactly: repetitionValue), (0...2000).contains(value), (1...1000).contains(count) else {
             store.error = "Vul een gewicht van 0 tot 2000 kg en 1 tot 1000 herhalingen in."; return
         }
         busy = true

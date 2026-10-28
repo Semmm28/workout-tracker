@@ -37,6 +37,8 @@ final class PhoneStore: ObservableObject {
                 if ProcessInfo.processInfo.arguments.contains("--ui-test-reset") {
                     try? FileManager.default.removeItem(at: url)
                     UserDefaults.standard.removeObject(forKey: "trainingDefaultSetCount")
+                    UserDefaults.standard.removeObject(forKey: "trainingDefaultRepMin")
+                    UserDefaults.standard.removeObject(forKey: "trainingDefaultRepMax")
                     UserDefaults.standard.removeObject(forKey: "trainingRestTimerEnabled")
                 }
             }
@@ -97,6 +99,12 @@ final class PhoneStore: ObservableObject {
     func saveTraining(_ document: TrainingDocument, kind: String, existing: Bool) async throws {
         let original = kind == "plans" ? data.planRecords[document.id] : data.sessionRecords[document.id]
         try await save(kind: kind, row: document.record(preserving: original), existing: existing)
+    }
+    func updatePlanItem(planID: String, item: TrainingItem) async throws {
+        guard var plan = data.plans.first(where: { $0.id == planID }),
+              let index = plan.items.firstIndex(where: { $0.id == item.id }) else { throw PhoneDataError.deleted }
+        plan.items[index] = item
+        try await saveTraining(plan, kind: "plans", existing: true)
     }
     func trainingSet(sessionID: String, itemID: String, setID: String, weight: Double, reps: Int, undo: Bool, restTimerEnabled: Bool = true) async throws {
         guard let repository else { throw PhoneDataError.notReady }

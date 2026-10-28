@@ -2,6 +2,7 @@ import { bodyweightSeries } from '../selectors.js';
 import { state } from '../state.js';
 import { formatDate, formatWeight, safeText, toInputDate } from '../utils.js';
 import { buildChartSvg, renderHeader, renderSwipeContainer } from '../ui/components.js';
+import { renderNumericField } from '../ui/forms.js';
 
 function renderBodyweightRow(entry) {
   const content = `
@@ -42,10 +43,7 @@ export function renderBodyweightScreen() {
                   <label for="bodyweight-date">Date</label>
                   <input id="bodyweight-date" name="date" type="date" />
                 </div>
-                <div class="field-group">
-                  <label for="bodyweight-value">Weight (kg) <span class="required-dot">•</span></label>
-                  <input id="bodyweight-value" name="weight" type="number" inputmode="decimal" step="0.1" min="0.1" required placeholder="0.0" />
-                </div>
+                ${renderNumericField({id:'bodyweight-value',name:'weight',label:'Gewicht (kg)',min:0.1,max:Infinity,step:0.1})}
               </div>
               <div class="modal-footer bodyweight-footer">
                 <button type="submit" class="primary-btn">Save measurement</button>
